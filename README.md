@@ -8,12 +8,17 @@ a generated package catalog.
 ## Start a bucket
 
 1. Create a repository from this template.
-2. In **Settings → Actions → General**, give workflows read and write access and
+2. Replace the placeholder copyright line in `LICENSE`.
+3. Replace this README title and introduction with your bucket's name and
+   purpose.
+4. In **Settings → Actions → General**, give workflows read and write access and
    allow GitHub Actions to create pull requests.
-3. Replace this introduction with your bucket's name and purpose.
-4. Add a manifest with the scaffolder described below.
-5. Run `mise run generate-readme` and commit the generated table with the new
+5. Run `mise install`, then add the first manifest with
+   `mise run add-manifest shim <package>` or
+   `mise run add-manifest binary <owner>/<repository>`.
+6. Run `mise run generate-readme` and commit the generated table with the new
    manifest.
+7. Run `mise run check` before opening a pull request.
 
 No owner or repository substitutions are needed in scripts or workflows. Shim
 manifests infer the GitHub repository from the `origin` remote so they can point
