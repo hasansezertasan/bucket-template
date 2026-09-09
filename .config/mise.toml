@@ -1,0 +1,61 @@
+[tools]
+"pipx:cobo" = "0.5.0"
+action-validator = "latest"
+actionlint = "latest"
+# Provides `python` for the scaffolder task below. `python3` isn't reliable on
+# Windows (the stock CPython installer ships `python.exe`, and `python3` often
+# resolves to the Microsoft Store alias stub), and this bucket targets Windows.
+python = "3.14"
+yamlfmt = "latest"
+yamllint = "latest"
+
+[tasks."add-manifest"]
+description = "Scaffold a manifest: `add-manifest binary <repo>` or `add-manifest shim <package>`"
+run = "python scripts/add_manifest.py"
+
+[tasks."check-boilerplate"]
+description = "Verify Cobo-managed files match cobo.lock"
+run = "cobo check --strict"
+
+[tasks."check-readme"]
+description = "Verify the generated package catalog is current"
+run = "python scripts/gen_readme_packages.py --check"
+
+[tasks."generate-readme"]
+description = "Regenerate the package catalog"
+run = "python scripts/gen_readme_packages.py"
+
+[tasks."test"]
+description = "Run the unit test suite"
+run = "python -m unittest discover -s tests -v"
+
+[tasks."check"]
+description = "Run all local verification"
+run = [
+  { task = "test" },
+  { task = "check-readme" },
+  { task = "style:check" },
+  { task = "check-boilerplate" },
+]
+
+[tasks."style"]
+description = "Format and lint all YAML files"
+run = [{ task = "style:fix" }, { task = "style:check" }]
+
+[tasks."style:fix"]
+description = "Format YAML files in place"
+run = "yamlfmt -conf .config/.yamlfmt.yml ."
+
+[tasks."style:check"]
+description = "Lint YAML and GitHub Actions files (no fixes)"
+run = """
+#!/usr/bin/env bash
+set -e
+echo "Running yamllint..."
+yamllint -c .config/.yamllint.yaml .
+echo "Running actionlint..."
+actionlint
+echo "Running action-validator..."
+find .github/workflows -name '*.yml' -exec action-validator {} +
+echo "All checks passed!"
+"""
