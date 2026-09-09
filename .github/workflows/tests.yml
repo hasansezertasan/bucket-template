@@ -1,9 +1,7 @@
 ---
 name: Tests
-# Least privilege: every job here only reads the repository. Update workflows
-# that create pull requests declare their own write permissions.
-permissions:
-  contents: read
+# Deny-by-default; each job opts back into exactly what it needs.
+permissions: {}
 on:
   push:
     branches: [main]
@@ -12,13 +10,20 @@ on:
     branches: [main]
     paths-ignore: ['**.md', 'LICENSE']
   workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   lint:
     name: Lint manifests
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
       - name: Validate JSON syntax
         run: |
           find bucket -maxdepth 1 -name '*.json' -print0 |
@@ -30,8 +35,12 @@ jobs:
     name: Unit tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
         with:
@@ -42,8 +51,12 @@ jobs:
     name: Check managed boilerplate
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
         with:
@@ -56,11 +69,15 @@ jobs:
     name: Discover packages
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
     outputs:
       packages: ${{ steps.find.outputs.packages }}
       has-packages: ${{ steps.find.outputs.has-packages }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
       - name: Find all packages
         id: find
         run: |
@@ -97,6 +114,8 @@ jobs:
     # version can turn this red for reasons unrelated to the PR under review.
     runs-on: windows-latest
     timeout-minutes: 30
+    permissions:
+      contents: read
     needs: [lint, discover]
     if: needs.discover.outputs.has-packages == 'true'
     strategy:
@@ -105,6 +124,8 @@ jobs:
         package: ${{ fromJson(needs.discover.outputs.packages) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
       - name: Skip placeholder manifests
         id: guard
         shell: pwsh

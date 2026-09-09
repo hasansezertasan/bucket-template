@@ -1,0 +1,25 @@
+---
+name: Boilerplate Drift
+on:
+  workflow_dispatch:
+  schedule:
+    # Weekly, Monday 07:00 UTC (ahead of update-manifests at 09:00).
+    - cron: "0 7 * * 1"
+permissions: {}
+jobs:
+  drift:
+    name: Check boilerplate drift
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d  # v10.0.1
+      - name: Refresh Cobo sources
+        run: uvx cobo update
+      - name: Check for drift
+        run: uvx cobo check --strict

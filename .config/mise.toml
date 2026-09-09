@@ -8,6 +8,7 @@ actionlint = "latest"
 python = "3.14"
 yamlfmt = "latest"
 yamllint = "latest"
+zizmor = "latest"
 
 [tasks."add-manifest"]
 description = "Scaffold a manifest: `add-manifest binary <repo>` or `add-manifest shim <package>`"
@@ -57,5 +58,7 @@ echo "Running actionlint..."
 actionlint
 echo "Running action-validator..."
 find .github/workflows -name '*.yml' -exec action-validator {} +
+echo "Running zizmor..."
+zizmor .github/workflows/
 echo "All checks passed!"
 """

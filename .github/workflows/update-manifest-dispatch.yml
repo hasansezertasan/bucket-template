@@ -7,6 +7,8 @@ name: Update Manifest (Dispatch)
 # A producer's dispatch token needs Contents: write on this bucket (required by
 # the POST /dispatches API for fine-grained PATs) but not Pull requests: write —
 # the bucket opens the PR itself with its own GITHUB_TOKEN.
+# Deny-by-default; each job opts back into exactly what it needs.
+permissions: {}
 on:
   repository_dispatch:
     types: [update-manifest]
@@ -26,6 +28,8 @@ jobs:
       issues: write  # open a failure issue on this bucket (GITHUB_TOKEN only)
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
       - name: Validate payload
         # The dispatch payload is attacker-controllable. Read it ONLY through env
         # (never interpolate ${{ ... }} into the script source), and validate it
