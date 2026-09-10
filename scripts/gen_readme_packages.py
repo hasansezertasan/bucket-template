@@ -43,7 +43,7 @@ _PKG = re.compile(r"(?:uv tool install|pipx install)\s+([A-Za-z0-9._-]+)")
 # route key -> (label, source, needs-Python) columns.
 _ROUTE = {
     "binary": ("binary", "GitHub Releases", "No"),
-    "pipx": ("pipx shim", "PyPI", "Yes (3.14+)"),
+    "pipx": ("pipx shim", "PyPI", "Yes"),
     "uv": ("uv-tool shim", "PyPI", "No¹"),
 }
 # Stable display order: binary, then pipx, then uv; alphabetical within a route.
@@ -94,7 +94,10 @@ def build_table() -> str:
             "|---|---|---|---|---|"]
     manifests = []
     for path in BUCKET.glob("*.json"):
-        manifest = json.loads(path.read_text(encoding="utf-8"))
+        try:
+            manifest = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            sys.exit(f"error: invalid JSON in {path.name}: {exc}")
         manifests.append((path.stem, manifest, route(manifest)))
     manifests.sort(key=lambda item: (_ORDER[item[2]], item[0]))
 
@@ -130,7 +133,7 @@ def main() -> None:
         if current != updated:
             sys.exit("README.md packages table is stale; run "
                      "`mise run generate-readme`")
-        print("README.md packages table is up to date")
+        print("README.md packages table is up to date", file=sys.stderr)
         return
 
     if current != updated:

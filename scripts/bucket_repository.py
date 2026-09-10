@@ -20,11 +20,7 @@ def from_remote(remote: str) -> str | None:
     if m_ssh:
         return f"{m_ssh.group(1)}/{m_ssh.group(2)}"
 
-    try:
-        parts = urlsplit(remote)
-    except Exception:
-        return None
-
+    parts = urlsplit(remote)
     if parts.hostname == "github.com":
         path = parts.path.strip("/")
         if path.endswith(".git"):

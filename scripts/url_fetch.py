@@ -45,4 +45,9 @@ def request(url: str, *, accept: str = "application/json") -> urllib.request.Req
 def get_json(url: str) -> dict:
     """Fetch and decode a JSON document."""
     with urllib.request.urlopen(request(url), timeout=30) as response:  # noqa: S310
-        return json.load(response)
+        body = response.read()
+    try:
+        return json.loads(body)
+    except json.JSONDecodeError as exc:
+        preview = body[:200].decode("utf-8", errors="replace")
+        raise ValueError(f"invalid JSON from {url}: {preview!r}") from exc

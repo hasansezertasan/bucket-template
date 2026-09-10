@@ -46,6 +46,8 @@ The template supports three install routes:
 |---|---|---|---|---|
 <!-- END PACKAGES TABLE -->
 
+¹ uv manages its own Python runtime.
+
 ## Add a manifest
 
 The standard-library-only scaffolder fetches upstream metadata and writes the

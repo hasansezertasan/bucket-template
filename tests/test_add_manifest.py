@@ -361,8 +361,77 @@ class PypiInfoTest(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 am.pypi_info("nope")
 
+    def test_missing_info_key_exits(self) -> None:
+        with mock.patch.object(am, "fetch_json", return_value={"releases": {}}):
+            with self.assertRaises(SystemExit) as ctx:
+                am.pypi_info("broken")
+        self.assertIn("missing 'info'", str(ctx.exception))
+
 
 class AddBinaryTest(unittest.TestCase):
+    def test_seed_requires_bin_flag(self) -> None:
+        meta = {"html_url": "https://github.com/o/r", "description": "tool"}
+        args = argparse.Namespace(
+            repo="o/r",
+            name="tool",
+            seed=True,
+            artifact=None,
+            extract_dir=None,
+            bin=None,
+        )
+        with (
+            mock.patch.object(am, "fetch_json", return_value=meta),
+            mock.patch("sys.stderr", io.StringIO()),
+            self.assertRaises(SystemExit) as ctx,
+        ):
+            am.add_binary(args)
+        self.assertIn("--bin", str(ctx.exception))
+
+    def test_seed_writes_placeholder_manifest(self) -> None:
+        meta = {"html_url": "https://github.com/o/r", "description": "tool"}
+        args = argparse.Namespace(
+            repo="o/r",
+            name="tool",
+            seed=True,
+            artifact=None,
+            extract_dir=None,
+            bin="tool.exe",
+        )
+        written = {}
+
+        def fake_write(name: str, data: dict) -> Path:
+            written["name"] = name
+            written["data"] = data
+            return Path(f"bucket/{name}.json")
+
+        with (
+            mock.patch.object(am, "fetch_json", return_value=meta),
+            mock.patch.object(am, "_write_manifest", side_effect=fake_write),
+            mock.patch("sys.stdout", io.StringIO()),
+            mock.patch("sys.stderr", io.StringIO()),
+        ):
+            am.add_binary(args)
+
+        self.assertEqual(written["data"]["version"], "0.0.0")
+        self.assertEqual(written["data"]["architecture"]["64bit"]["hash"], "0" * 64)
+
+    def test_repo_not_found_exits_cleanly(self) -> None:
+        err = urllib.error.HTTPError("u", 404, "Not Found", {}, None)  # type: ignore[arg-type]
+        args = argparse.Namespace(
+            repo="missing/repo",
+            name=None,
+            seed=False,
+            artifact=None,
+            extract_dir=None,
+            bin=None,
+        )
+        with (
+            mock.patch.object(am, "fetch_json", side_effect=err),
+            self.assertRaises(SystemExit) as ctx,
+        ):
+            am.add_binary(args)
+        self.assertIn("not found", str(ctx.exception))
+
     def test_add_binary_rebases_exe_with_extract_dir_override(self) -> None:
         meta = {"html_url": "https://github.com/o/r", "description": "tool"}
         release = {

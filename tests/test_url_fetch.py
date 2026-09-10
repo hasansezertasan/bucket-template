@@ -13,6 +13,27 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 import url_fetch  # noqa: E402
 
 
+class GetJsonTest(unittest.TestCase):
+    def test_invalid_json_includes_url_context(self) -> None:
+        from io import BytesIO
+
+        class FakeResponse:
+            def read(self) -> bytes:
+                return b"<html>Not JSON</html>"
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                pass
+
+        with mock.patch("urllib.request.urlopen", return_value=FakeResponse()):
+            with self.assertRaises(ValueError) as ctx:
+                url_fetch.get_json("https://example.com/api")
+        self.assertIn("https://example.com/api", str(ctx.exception))
+        self.assertIn("<html>", str(ctx.exception))
+
+
 class RequestTest(unittest.TestCase):
     def test_github_token_is_sent_only_to_exact_api_host(self) -> None:
         with mock.patch.dict(os.environ, {"GITHUB_TOKEN": "secret"}):

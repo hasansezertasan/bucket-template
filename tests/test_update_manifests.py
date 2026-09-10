@@ -113,6 +113,14 @@ class LatestGithubTest(unittest.TestCase):
         with mock.patch.object(um, "_get_json", return_value={"tag_name": "1.2.3"}):
             self.assertEqual(um._latest_github(checkver), "1.2.3")
 
+    def test_missing_tag_name_raises_with_context(self) -> None:
+        checkver = {"github": "https://github.com/acme/tool"}
+        with mock.patch.object(um, "_get_json", return_value={"message": "rate limited"}):
+            with self.assertRaises(ValueError) as ctx:
+                um._latest_github(checkver)
+        self.assertIn("rate limited", str(ctx.exception))
+        self.assertIn("acme/tool", str(ctx.exception))
+
 
 class UpdateManifestTest(unittest.TestCase):
     def _tmp(self) -> Path:
@@ -208,6 +216,17 @@ class UpdateManifestTest(unittest.TestCase):
         self.assertFalse(
             um._is_placeholder({"architecture": {"64bit": {"hash": real_hash}}})
         )
+
+    def test_unrecognized_checkver_is_skipped_with_warning(self) -> None:
+        manifest = {"version": "1.0.0", "checkver": {"unknown": "value"}}
+        tmp = TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        path = _write(Path(tmp.name), "mystery", manifest)
+        stderr = io.StringIO()
+        with mock.patch("sys.stderr", stderr):
+            note = um._update_manifest(path)
+        self.assertIsNone(note)
+        self.assertIn("unrecognized checkver", stderr.getvalue())
 
 
 class MainTest(unittest.TestCase):

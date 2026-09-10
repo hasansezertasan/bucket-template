@@ -141,11 +141,8 @@ def parse_repo(ref: str) -> tuple[str, str]:
         return m_ssh.group(1), m_ssh.group(2)
 
     if "://" in ref:
-        try:
-            parts = urlsplit(ref)
-        except Exception:
-            parts = None
-        if parts and parts.hostname == "github.com":
+        parts = urlsplit(ref)
+        if parts.hostname == "github.com":
             path = parts.path.strip("/")
             if path.endswith(".git"):
                 path = path[:-4]
@@ -203,12 +200,16 @@ def download_zip(url: str) -> str:
     print(f"==> Downloading {url} to compute sha256 and inspect the archive",
           file=sys.stderr)
     fd, tmp = tempfile.mkstemp(suffix=".zip")
-    with os.fdopen(fd, "wb") as out:
-        with urllib.request.urlopen(  # noqa: S310
-            request(url, accept="application/octet-stream"), timeout=30
-        ) as resp:
-            for chunk in iter(lambda: resp.read(1 << 20), b""):
-                out.write(chunk)
+    try:
+        with os.fdopen(fd, "wb") as out:
+            with urllib.request.urlopen(  # noqa: S310
+                request(url, accept="application/octet-stream"), timeout=30
+            ) as resp:
+                for chunk in iter(lambda: resp.read(1 << 20), b""):
+                    out.write(chunk)
+    except Exception:
+        os.unlink(tmp)
+        raise
     return tmp
 
 
@@ -409,19 +410,22 @@ def _binary_next_steps(token: str, extract_dir: str | None, exe: str) -> None:
 def pypi_info(package: str) -> dict:
     """Return the ``info`` block of a PyPI package's latest release."""
     try:
-        return fetch_json(f"{PYPI}/{package}/json")["info"]
+        data = fetch_json(f"{PYPI}/{package}/json")
     except urllib.error.HTTPError as exc:
         if exc.code == 404:
             sys.exit(f"error: PyPI package {package!r} not found")
         raise
+    if "info" not in data:
+        sys.exit(f"error: PyPI response for {package!r} missing 'info' field")
+    return data["info"]
 
 
 def pypi_homepage(info: dict, package: str) -> str:
     """Best-effort project homepage, preferring an explicit repo/homepage URL.
 
-    PyPI's JSON API lowercases ``project_urls`` labels, so match case-insensitively
-    and prefer the homepage, then the source/repository (``.git`` stripped so it
-    reads as a browsable URL like the hand-written manifests).
+    ``project_urls`` labels vary in case across packages, so lowercase for
+    case-insensitive matching. Prefer the homepage, then the source/repository
+    (``.git`` stripped so it reads as a browsable URL like hand-written manifests).
     """
     urls = {key.lower(): value for key, value in (info.get("project_urls") or {}).items()}
     for key in ("homepage", "repository", "source", "source code"):

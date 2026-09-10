@@ -56,7 +56,11 @@ def _latest_github(checkver: dict) -> str:
     # checkver.github is the repo homepage; the latest *release* tag is the
     # version (drafts are excluded by the API, which is what we want).
     repo = checkver["github"].rstrip("/").removeprefix("https://github.com/")
-    tag = _get_json(f"https://api.github.com/repos/{repo}/releases/latest")["tag_name"]
+    data = _get_json(f"https://api.github.com/repos/{repo}/releases/latest")
+    if "tag_name" not in data:
+        msg = data.get("message", "unknown error")
+        raise ValueError(f"GitHub API error for {repo}: {msg}")
+    tag = data["tag_name"]
     return tag[1:] if re.fullmatch(r"v\d.*", tag) else tag
 
 
@@ -209,9 +213,13 @@ def _update_manifest(path: Path) -> str | None:
         if "architecture" in autoupdate:
             new_arch = {}
             for arch, spec in autoupdate["architecture"].items():
+                if "url" not in spec:
+                    raise KeyError(f"autoupdate.architecture.{arch} missing 'url'")
                 url = spec["url"].replace("$version", latest)
                 new_arch[arch] = (url, _sha256(url))
             for arch, (url, digest) in new_arch.items():
+                if arch not in data.get("architecture", {}):
+                    raise KeyError(f"architecture.{arch} in autoupdate but not in manifest")
                 data["architecture"][arch]["url"] = url
                 data["architecture"][arch]["hash"] = digest
         elif "$version" in autoupdate.get("url", ""):
