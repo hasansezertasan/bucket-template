@@ -91,6 +91,9 @@ def _parse_version(
             return None
         epoch = int(epoch_str)
 
+    if "+" in v:
+        v, _local = v.split("+", 1)
+
     match = re.fullmatch(
         r"^v?(\d+(?:\.\d+)*)"
         r"(?:[-._]?(a|alpha|b|beta|rc|c|pre|preview)[-._]?(\d*))?"
@@ -128,6 +131,19 @@ def _parse_version(
     post_val = (1, int(post_num) if post_num else 0) if post_tag else (0, 0)
     dev_val = (-1, int(dev_num) if dev_num else 0) if dev_tag else (0, 0)
     return epoch, base, pre_val, post_val, dev_val
+
+
+def _is_placeholder(data: dict) -> bool:
+    """Return True if the manifest still carries the all-zero placeholder SHA."""
+    placeholder_sha = "0" * 64
+    if data.get("hash") == placeholder_sha:
+        return True
+    arch = data.get("architecture", {})
+    if isinstance(arch, dict):
+        for spec in arch.values():
+            if isinstance(spec, dict) and spec.get("hash") == placeholder_sha:
+                return True
+    return False
 
 
 def _is_downgrade(latest: str, current: str) -> bool:
@@ -173,7 +189,7 @@ def _update_manifest(path: Path) -> str | None:
         print(f"::warning::{path.name}: unrecognized checkver, skipping", file=sys.stderr)
         return None
 
-    if latest == current:
+    if latest == current and not _is_placeholder(data):
         return None
     if _is_downgrade(latest, current):
         print(

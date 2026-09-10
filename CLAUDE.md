@@ -20,7 +20,7 @@ Actions context, or an explicit environment/CLI override.
 - Keep `checkver` and `autoupdate` aligned with the concrete download URL.
 - Never interpolate an untrusted dispatch payload directly into shell source.
 - Keep workflows least-privileged; only update jobs receive write access.
-- A `0.0.0` binary is a seed placeholder and must not be installed by CI.
+- A binary manifest with a placeholder hash (all zeroes) must not be installed by CI.
 - For shim manifests, `scripts/noop.ps1`, its generated SHA-256, and its raw
   repository URL must agree.
 - Regenerate the README table after any manifest change.

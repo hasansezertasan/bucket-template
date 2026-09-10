@@ -95,6 +95,11 @@ class DowngradeTest(unittest.TestCase):
         self.assertFalse(um._is_downgrade("1.2b1.dev1", "1.2a1"))
         self.assertTrue(um._is_downgrade("1.2a1", "1.2b1.dev1"))
 
+    def test_local_metadata_downgrade(self) -> None:
+        self.assertTrue(um._is_downgrade("v1.9.0+build.2", "v2.0.0+build.1"))
+        self.assertFalse(um._is_downgrade("v2.0.0+build.1", "v1.9.0+build.2"))
+        self.assertFalse(um._is_downgrade("2.0.0+1", "2.0.0+2"))
+
 
 class LatestGithubTest(unittest.TestCase):
     def test_tag_stripping(self) -> None:
@@ -168,6 +173,41 @@ class UpdateManifestTest(unittest.TestCase):
         path = _write(self._tmp(), "widget-pipx", bad)
         with self.assertRaises(KeyError):
             um._update_manifest(path)
+
+    def test_placeholder_manifest_updates_when_version_matches(self) -> None:
+        # A seed binary manifest at 0.0.0 with placeholder hash must be updated
+        # even if latest release on GitHub is also 0.0.0.
+        seeded = {
+            **GITHUB,
+            "version": "0.0.0",
+            "architecture": {
+                "64bit": {
+                    "url": "https://github.com/o/r/releases/download/v0.0.0/widget-windows.zip",
+                    "hash": "0" * 64,
+                }
+            },
+        }
+        path = _write(self._tmp(), "widget", seeded)
+        with (
+            mock.patch.object(um, "_latest_github", return_value="0.0.0"),
+            mock.patch.object(um, "_sha256", return_value="a" * 64),
+        ):
+            note = um._update_manifest(path)
+        self.assertEqual(note, "`0.0.0` → `0.0.0`")
+        written = json.loads(path.read_text())
+        self.assertEqual(written["architecture"]["64bit"]["hash"], "a" * 64)
+
+    def test_is_placeholder(self) -> None:
+        zero_hash = "0" * 64
+        real_hash = "a" * 64
+        self.assertTrue(um._is_placeholder({"hash": zero_hash}))
+        self.assertFalse(um._is_placeholder({"hash": real_hash}))
+        self.assertTrue(
+            um._is_placeholder({"architecture": {"64bit": {"hash": zero_hash}}})
+        )
+        self.assertFalse(
+            um._is_placeholder({"architecture": {"64bit": {"hash": real_hash}}})
+        )
 
 
 class MainTest(unittest.TestCase):

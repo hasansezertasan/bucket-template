@@ -134,10 +134,17 @@ jobs:
         run: |
           # A binary manifest may be seeded before its first release. Do not try
           # to install that placeholder; its first successful update activates CI.
-          $version = (Get-Content "bucket/$env:PACKAGE.json" | ConvertFrom-Json).version
-          if ($version -eq "0.0.0") {
+          $manifest = Get-Content "bucket/$env:PACKAGE.json" -Raw | ConvertFrom-Json
+          $placeholderSha = "0" * 64
+          $hashes = @($manifest.hash)
+          if ($manifest.architecture) {
+            foreach ($prop in $manifest.architecture.PSObject.Properties) {
+              $hashes += $prop.Value.hash
+            }
+          }
+          if ($hashes -contains $placeholderSha) {
             echo "skip=true" >> $env:GITHUB_OUTPUT
-            echo "::notice::$env:PACKAGE is still 0.0.0 (placeholder); skipping install test"
+            echo "::notice::$env:PACKAGE has placeholder hash; skipping install test"
           } else {
             echo "skip=false" >> $env:GITHUB_OUTPUT
           }
