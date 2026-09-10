@@ -11,12 +11,12 @@ Two routes cover prebuilt Windows applications and Python command-line tools:
   ``0.0.0`` placeholder for a repo whose Windows build doesn't exist yet.
 - **shim**: package a PyPI CLI as a
   ``uv tool install`` (default) or ``pipx install`` shim. There is **no**
-  dependency resolution — uv/pipx resolve the tree at install time — so this is
-  far simpler than ``add_formula.py``: the manifest's ``url``/``hash`` are the
-  static ``noop.ps1`` (its hash never moves) and only ``version`` ever changes.
+  dependency resolution — uv/pipx resolve the tree at install time — so the
+  manifest's ``url``/``hash`` are the static ``noop.ps1`` (its hash never moves)
+  and only ``version`` ever changes.
 
 Standard library only — no third-party dependencies. Companion to
-``update_manifests.py``. See the "Adding a manifest" section of CONTRIBUTING.md
+``update_manifests.py``. See the "Add a manifest" section of README.md
 for usage.
 """
 
@@ -110,7 +110,8 @@ def noop_source(repository: str, ref: str = "main") -> tuple[str, str]:
     if not re.fullmatch(r"[A-Za-z0-9._/-]+", ref) or ".." in ref.split("/"):
         sys.exit("error: bucket ref contains unsupported characters")
     url = f"https://raw.githubusercontent.com/{repository}/{ref}/scripts/noop.ps1"
-    sha = hashlib.sha256(NOOP_FILE.read_bytes()).hexdigest()
+    raw_bytes = NOOP_FILE.read_bytes().replace(b"\r\n", b"\n")
+    sha = hashlib.sha256(raw_bytes).hexdigest()
     return url, sha
 
 
@@ -183,7 +184,9 @@ def download_zip(url: str) -> str:
           file=sys.stderr)
     fd, tmp = tempfile.mkstemp(suffix=".zip")
     with os.fdopen(fd, "wb") as out:
-        with urllib.request.urlopen(request(url, accept="application/octet-stream")) as resp:  # noqa: S310
+        with urllib.request.urlopen(  # noqa: S310
+            request(url, accept="application/octet-stream"), timeout=30
+        ) as resp:
             for chunk in iter(lambda: resp.read(1 << 20), b""):
                 out.write(chunk)
     return tmp
@@ -328,7 +331,19 @@ def add_binary(args: argparse.Namespace) -> None:
         finally:
             os.unlink(tmp)
         extract_dir = args.extract_dir or found_dir
-        exe = args.bin or found_exe
+        exe = args.bin
+        if not exe and found_exe:
+            full_exe = f"{found_dir}/{found_exe}" if found_dir else found_exe
+            if extract_dir:
+                if full_exe.startswith(f"{extract_dir}/"):
+                    exe = full_exe[len(extract_dir) + 1:]
+                elif args.extract_dir:
+                    sys.exit(f"error: inferred executable '{full_exe}' is outside "
+                             f"--extract-dir '{extract_dir}'; pass --bin")
+                else:
+                    exe = full_exe
+            else:
+                exe = full_exe
         if not exe:
             sys.exit(f"error: {hint or 'could not determine the executable'}")
         concrete_url = (f"https://github.com/{owner}/{repo}/releases/download/"

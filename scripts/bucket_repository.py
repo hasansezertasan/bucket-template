@@ -8,15 +8,31 @@ import subprocess
 from pathlib import Path
 
 
+from urllib.parse import urlsplit
+
+
 def from_remote(remote: str) -> str | None:
     """Convert a GitHub remote URL to ``owner/repository`` notation."""
-    match = re.search(
-        r"github\.com[/:]([^/]+)/([^/#?]+?)(?:\.git)?/?$", remote.strip()
+    remote = remote.strip()
+    m_ssh = re.fullmatch(
+        r"(?:[a-zA-Z0-9_.-]+@)?github\.com:([^/]+)/([^/#?]+?)(?:\.git)?/?", remote
     )
-    if not match:
+    if m_ssh:
+        return f"{m_ssh.group(1)}/{m_ssh.group(2)}"
+
+    try:
+        parts = urlsplit(remote)
+    except Exception:
         return None
-    owner, repository = match.groups()
-    return f"{owner}/{repository}"
+
+    if parts.hostname == "github.com":
+        path = parts.path.strip("/")
+        if path.endswith(".git"):
+            path = path[:-4]
+        segments = path.split("/")
+        if len(segments) == 2 and all(segments):
+            return f"{segments[0]}/{segments[1]}"
+    return None
 
 
 def resolve(repo_root: Path) -> str | None:

@@ -99,6 +99,12 @@ re-checks the configured upstream source. A producer needs a fine-grained token
 with **Contents: write** access to this bucket solely to call the dispatch API.
 Store that token in the producer repository, not in the bucket.
 
+Automated pull requests use the repository secret `WORKFLOW_TOKEN` if defined,
+falling back to `GITHUB_TOKEN`. Because GitHub suppresses follow-on workflow
+runs for actions performed by `GITHUB_TOKEN`, configure a PAT or GitHub App token
+as `WORKFLOW_TOKEN` to run CI checks automatically on update PRs, or run the
+`Tests` workflow manually via `workflow_dispatch`.
+
 ## Managed boilerplate
 
 `.gitignore` is generated from GitHub's macOS, Windows, Linux, Visual Studio Code,

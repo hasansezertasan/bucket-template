@@ -20,6 +20,6 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d  # v10.0.1
       - name: Refresh Cobo sources
-        run: uvx cobo update
+        run: uvx cobo@0.5.0 update
       - name: Check for drift
-        run: uvx cobo check --strict
+        run: uvx cobo@0.5.0 check --strict

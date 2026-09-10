@@ -7,6 +7,7 @@ suite exercises the pure rendering/inference logic offline. Run with
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import io
 import os
@@ -82,7 +83,18 @@ class HelperTest(unittest.TestCase):
             url,
             "https://raw.githubusercontent.com/acme/scoop-tools/stable/scripts/noop.ps1",
         )
-        self.assertEqual(sha, hashlib.sha256(am.NOOP_FILE.read_bytes()).hexdigest())
+        expected_sha = hashlib.sha256(
+            am.NOOP_FILE.read_bytes().replace(b"\r\n", b"\n")
+        ).hexdigest()
+        self.assertEqual(sha, expected_sha)
+
+    def test_noop_source_hashes_canonical_lf_even_with_crlf_input(self) -> None:
+        with mock.patch.object(
+            am.Path, "read_bytes", return_value=b"Write-Output hello\r\n"
+        ):
+            _, sha = am.noop_source("acme/scoop-tools", "stable")
+        expected = hashlib.sha256(b"Write-Output hello\n").hexdigest()
+        self.assertEqual(sha, expected)
 
     def test_noop_source_rejects_invalid_repository(self) -> None:
         with self.assertRaises(SystemExit):
@@ -137,7 +149,7 @@ class InspectZipTest(unittest.TestCase):
         self.assertEqual(exe, "bin/tool.exe")
 
     def test_multiple_exes_matches_token(self) -> None:
-        extract_dir, exe, hint = self._inspect(
+        _, exe, hint = self._inspect(
             ["app/app.exe", "app/helper.exe"], "app")
         self.assertEqual(exe, "app.exe")
         self.assertEqual(hint, "")
@@ -339,6 +351,70 @@ class PypiInfoTest(unittest.TestCase):
         with mock.patch.object(am, "fetch_json", side_effect=err):
             with self.assertRaises(SystemExit):
                 am.pypi_info("nope")
+
+
+class AddBinaryTest(unittest.TestCase):
+    def test_add_binary_rebases_exe_with_extract_dir_override(self) -> None:
+        meta = {"html_url": "https://github.com/o/r", "description": "tool"}
+        release = {
+            "tag_name": "v1.0.0",
+            "assets": [{"name": "tool.zip", "browser_download_url": "https://example/tool.zip"}],
+        }
+        args = argparse.Namespace(
+            repo="o/r",
+            name="tool",
+            seed=False,
+            artifact="tool.zip",
+            extract_dir="dist",
+            bin=None,
+        )
+        written = {}
+
+        def fake_write(name: str, data: dict) -> Path:
+            written["name"] = name
+            written["data"] = data
+            return Path(f"bucket/{name}.json")
+
+        with (
+            mock.patch.object(am, "fetch_json", side_effect=[meta, release]),
+            mock.patch.object(am, "download_zip", return_value="/tmp/fake.zip"),
+            mock.patch.object(am, "sha256_of_file", return_value="0" * 64),
+            mock.patch.object(am, "inspect_zip", return_value=(None, "dist/tool.exe", "")),
+            mock.patch.object(am, "_write_manifest", side_effect=fake_write),
+            mock.patch("os.unlink"),
+            mock.patch("sys.stdout"),
+            mock.patch("sys.stderr"),
+        ):
+            am.add_binary(args)
+
+        self.assertEqual(written["data"]["architecture"]["64bit"]["extract_dir"], "dist")
+        self.assertEqual(written["data"]["bin"], "tool.exe")
+
+    def test_add_binary_fails_when_exe_outside_extract_dir_and_no_bin(self) -> None:
+        meta = {"html_url": "https://github.com/o/r", "description": "tool"}
+        release = {
+            "tag_name": "v1.0.0",
+            "assets": [{"name": "tool.zip", "browser_download_url": "https://example/tool.zip"}],
+        }
+        args = argparse.Namespace(
+            repo="o/r",
+            name="tool",
+            seed=False,
+            artifact="tool.zip",
+            extract_dir="other",
+            bin=None,
+        )
+
+        with (
+            mock.patch.object(am, "fetch_json", side_effect=[meta, release]),
+            mock.patch.object(am, "download_zip", return_value="/tmp/fake.zip"),
+            mock.patch.object(am, "sha256_of_file", return_value="0" * 64),
+            mock.patch.object(am, "inspect_zip", return_value=(None, "dist/tool.exe", "")),
+            mock.patch("os.unlink"),
+            mock.patch("sys.stderr"),
+            self.assertRaises(SystemExit),
+        ):
+            am.add_binary(args)
 
 
 if __name__ == "__main__":

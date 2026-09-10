@@ -92,7 +92,7 @@ jobs:
         if: steps.update.outputs.changed == 'true'
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1  # v8.1.1
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.WORKFLOW_TOKEN || secrets.GITHUB_TOKEN }}
           # env.PACKAGE is the validated token, not the raw payload.
           commit-message: "chore(${{ env.PACKAGE }}): update manifests"
           title: "chore(${{ env.PACKAGE }}): update manifests"
@@ -130,4 +130,7 @@ jobs:
             --title "Manifest bump failed: ${PACKAGE:-<unknown>} ${VERSION}" \
             --label "automated,dependencies" \
             --body "$body" \
-            || echo "::warning::could not open failure issue (labels may not exist yet)"
+            || gh issue create \
+              --title "Manifest bump failed: ${PACKAGE:-<unknown>} ${VERSION}" \
+              --body "$body" \
+            || echo "::warning::could not open failure issue"

@@ -1,14 +1,14 @@
 [tools]
 "pipx:cobo" = "0.5.0"
-action-validator = "latest"
-actionlint = "latest"
+action-validator = "0.9.0"
+actionlint = "1.7.12"
 # Provides `python` for the scaffolder task below. `python3` isn't reliable on
 # Windows (the stock CPython installer ships `python.exe`, and `python3` often
 # resolves to the Microsoft Store alias stub), and this bucket targets Windows.
 python = "3.14"
-yamlfmt = "latest"
-yamllint = "latest"
-zizmor = "latest"
+yamlfmt = "0.21.0"
+yamllint = "1.38.0"
+zizmor = "1.30.1"
 
 [tasks."add-manifest"]
 description = "Scaffold a manifest: `add-manifest binary <repo>` or `add-manifest shim <package>`"
@@ -61,4 +61,7 @@ find .github/workflows -name '*.yml' -exec action-validator {} +
 echo "Running zizmor..."
 zizmor .github/workflows/
 echo "All checks passed!"
+"""
+run_windows = """
+powershell -NoProfile -Command "& { $ErrorActionPreference = 'Stop'; Write-Host 'Running yamllint...'; yamllint -c .config/.yamllint.yaml .; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; Write-Host 'Running actionlint...'; actionlint; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; Write-Host 'Running action-validator...'; Get-ChildItem -Path .github/workflows -Filter *.yml | ForEach-Object { action-validator $_.FullName; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE } }; Write-Host 'Running zizmor...'; zizmor .github/workflows/; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; Write-Host 'All checks passed!' }"
 """

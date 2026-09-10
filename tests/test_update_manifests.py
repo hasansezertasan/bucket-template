@@ -71,6 +71,29 @@ class DowngradeTest(unittest.TestCase):
     def test_unparseable_proceeds(self) -> None:
         self.assertFalse(um._is_downgrade("weird", "0.1.0"))
 
+    def test_post_release_downgrade(self) -> None:
+        self.assertTrue(um._is_downgrade("1.2", "1.2.post1"))
+        self.assertFalse(um._is_downgrade("1.2.post1", "1.2"))
+        self.assertFalse(um._is_downgrade("1.2.post2", "1.2.post1"))
+        self.assertTrue(um._is_downgrade("1.2.post1", "1.2.post2"))
+
+    def test_pre_release_downgrade(self) -> None:
+        self.assertTrue(um._is_downgrade("1.2rc1", "1.2"))
+        self.assertFalse(um._is_downgrade("1.2", "1.2rc1"))
+
+
+class LatestGithubTest(unittest.TestCase):
+    def test_tag_stripping(self) -> None:
+        checkver = {"github": "https://github.com/acme/tool"}
+        with mock.patch.object(um, "_get_json", return_value={"tag_name": "v1.2.3"}):
+            self.assertEqual(um._latest_github(checkver), "1.2.3")
+
+        with mock.patch.object(um, "_get_json", return_value={"tag_name": "version-1.2.3"}):
+            self.assertEqual(um._latest_github(checkver), "version-1.2.3")
+
+        with mock.patch.object(um, "_get_json", return_value={"tag_name": "1.2.3"}):
+            self.assertEqual(um._latest_github(checkver), "1.2.3")
+
 
 class UpdateManifestTest(unittest.TestCase):
     def _tmp(self) -> Path:

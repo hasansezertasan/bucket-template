@@ -57,7 +57,7 @@ def _latest_github(checkver: dict) -> str:
     # version (drafts are excluded by the API, which is what we want).
     repo = checkver["github"].rstrip("/").removeprefix("https://github.com/")
     tag = _get_json(f"https://api.github.com/repos/{repo}/releases/latest")["tag_name"]
-    return tag.removeprefix("v")
+    return tag[1:] if re.fullmatch(r"v\d.*", tag) else tag
 
 
 def _sha256(url: str) -> str:
@@ -75,28 +75,74 @@ def _release_tuple(version: str) -> tuple[int, ...]:
     return tuple(int(part) for part in match.group(0).split(".")) if match else ()
 
 
+def _parse_version(
+    version: str,
+) -> tuple[tuple[int, ...], tuple[int, int, int], tuple[int, int]] | None:
+    """Parse a version into comparable tuples covering release, pre, and post tags.
+
+    Ordering semantics: dev < pre < final < post.
+    """
+    match = re.match(
+        r"^v?(\d+(?:\.\d+)*)"
+        r"(?:[-._]?(a|alpha|b|beta|rc|c|pre|preview)[-._]?(\d*))?"
+        r"(?:[-._]?(post|rev|r)[-._]?(\d*))?"
+        r"(?:[-._]?(dev)[-._]?(\d*))?",
+        version.strip(),
+        re.IGNORECASE,
+    )
+    if not match:
+        return None
+    base_str, pre_tag, pre_num, post_tag, post_num, dev_tag, dev_num = match.groups()
+    base = tuple(int(part) for part in base_str.split("."))
+
+    # Pre-release tag ranking: dev (-2) < pre (-1) < final (0)
+    pre_val = (0, 0, 0)
+    if dev_tag:
+        pre_val = (-2, 0, int(dev_num) if dev_num else 0)
+    elif pre_tag:
+        tag_order = {
+            "a": 1,
+            "alpha": 1,
+            "b": 2,
+            "beta": 2,
+            "rc": 3,
+            "c": 3,
+            "pre": 3,
+            "preview": 3,
+        }
+        pre_val = (
+            -1,
+            tag_order.get(pre_tag.lower(), 0),
+            int(pre_num) if pre_num else 0,
+        )
+
+    post_val = (1, int(post_num) if post_num else 0) if post_tag else (0, 0)
+    return base, pre_val, post_val
+
+
 def _is_downgrade(latest: str, current: str) -> bool:
     """True only when ``latest`` is unambiguously an older release than ``current``.
 
-    Compares numeric release tuples (zero-padded to equal length). Returns False
-    when either side has no parseable release, so anything ambiguous proceeds and
-    is caught in PR review rather than silently skipped. Guards against a yanked
-    PyPI release or a deleted GitHub release making "latest" move backward.
-
-    Contract: numeric release only. Prerelease suffixes are stripped by
-    ``_release_tuple`` (``1.2.3rc1`` -> ``(1, 2, 3)``), so a move from ``1.2.3``
-    to ``1.2.3rc1`` is *not* flagged as a downgrade. This can't fire in practice —
-    both sources exclude prereleases (PyPI ``info.version``, GitHub
-    ``releases/latest``) — but a checkver that started surfacing them would need
-    its own handling here.
+    Compares parsed version tuples including pre-releases and post-releases.
+    Returns False when either side has no parseable release, so anything
+    ambiguous proceeds and is caught in PR review rather than silently skipped.
+    Guards against a yanked PyPI release or a deleted GitHub release making
+    "latest" move backward.
     """
-    latest_tuple, current_tuple = _release_tuple(latest), _release_tuple(current)
-    if not latest_tuple or not current_tuple:
+    latest_parsed = _parse_version(latest)
+    current_parsed = _parse_version(current)
+    if not latest_parsed or not current_parsed:
         return False
-    width = max(len(latest_tuple), len(current_tuple))
-    latest_tuple += (0,) * (width - len(latest_tuple))
-    current_tuple += (0,) * (width - len(current_tuple))
-    return latest_tuple < current_tuple
+    latest_base, latest_pre, latest_post = latest_parsed
+    current_base, current_pre, current_post = current_parsed
+    width = max(len(latest_base), len(current_base))
+    latest_base += (0,) * (width - len(latest_base))
+    current_base += (0,) * (width - len(current_base))
+    return (latest_base, latest_pre, latest_post) < (
+        current_base,
+        current_pre,
+        current_post,
+    )
 
 
 def _update_manifest(path: Path) -> str | None:

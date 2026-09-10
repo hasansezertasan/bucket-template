@@ -94,7 +94,7 @@ def build_table() -> str:
             "|---|---|---|---|---|"]
     manifests = []
     for path in BUCKET.glob("*.json"):
-        manifest = json.loads(path.read_text())
+        manifest = json.loads(path.read_text(encoding="utf-8"))
         manifests.append((path.stem, manifest, route(manifest)))
     manifests.sort(key=lambda item: (_ORDER[item[2]], item[0]))
 
@@ -123,7 +123,7 @@ def main() -> None:
                         help="exit non-zero if README.md is out of date")
     args = parser.parse_args()
 
-    current = README.read_text()
+    current = README.read_text(encoding="utf-8")
     updated = splice(current, build_table())
 
     if args.check:
@@ -134,7 +134,7 @@ def main() -> None:
         return
 
     if current != updated:
-        README.write_text(updated)
+        README.write_text(updated, encoding="utf-8")
         print("Updated README.md packages table")
     else:
         print("README.md packages table already up to date")

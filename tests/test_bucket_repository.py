@@ -30,6 +30,15 @@ class FromRemoteTest(unittest.TestCase):
         self.assertIsNone(
             bucket_repository.from_remote("https://example.com/acme/tools.git")
         )
+        self.assertIsNone(
+            bucket_repository.from_remote("https://notgithub.com/acme/tools.git")
+        )
+        self.assertIsNone(
+            bucket_repository.from_remote("git@notgithub.com:acme/tools.git")
+        )
+        self.assertIsNone(
+            bucket_repository.from_remote("https://github.com.evil.example/acme/tools.git")
+        )
 
     def test_override_wins_without_running_git(self) -> None:
         with (
