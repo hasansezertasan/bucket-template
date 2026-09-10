@@ -43,6 +43,15 @@ class HelperTest(unittest.TestCase):
     def test_parse_repo_rejects_garbage(self) -> None:
         with self.assertRaises(SystemExit):
             am.parse_repo("not-a-repo")
+        with self.assertRaises(SystemExit):
+            am.parse_repo("https://notgithub.com/o/r.git")
+        with self.assertRaises(SystemExit):
+            am.parse_repo("https://github.com.evil.example/o/r")
+        with self.assertRaises(SystemExit):
+            am.parse_repo("git@notgithub.com:o/r.git")
+
+    def test_parse_repo_ssh(self) -> None:
+        self.assertEqual(am.parse_repo("git@github.com:o/r.git"), ("o", "r"))
 
     def test_spdx_from_github_meta(self) -> None:
         self.assertEqual(am.spdx_license({"license": {"spdx_id": "MIT"}}), "MIT")

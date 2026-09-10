@@ -34,6 +34,7 @@ import urllib.request
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from bucket_repository import resolve as resolve_bucket_repository
 from url_fetch import get_json as fetch_json
@@ -132,15 +133,34 @@ def _write_manifest(name: str, data: dict) -> Path:
 # --------------------------------------------------------------------------- #
 def parse_repo(ref: str) -> tuple[str, str]:
     """Parse ``owner/repo`` or a GitHub URL into an ``(owner, repo)`` pair."""
-    match = re.search(r"github\.com[/:]([^/]+)/([^/#?]+)", ref)
-    if match:
-        owner, repo = match.group(1), match.group(2)
-    elif ref.count("/") == 1:
-        owner, repo = ref.split("/", 1)
-    else:
+    ref = ref.strip()
+    m_ssh = re.fullmatch(
+        r"(?:[a-zA-Z0-9_.-]+@)?github\.com:([^/]+)/([^/#?]+?)(?:\.git)?/?", ref
+    )
+    if m_ssh:
+        return m_ssh.group(1), m_ssh.group(2)
+
+    if "://" in ref:
+        try:
+            parts = urlsplit(ref)
+        except Exception:
+            parts = None
+        if parts and parts.hostname == "github.com":
+            path = parts.path.strip("/")
+            if path.endswith(".git"):
+                path = path[:-4]
+            segments = path.split("/")
+            if len(segments) == 2 and all(segments):
+                return segments[0], segments[1]
         sys.exit(f"error: cannot parse GitHub repo from {ref!r}; pass 'owner/repo' "
                  "or a github.com URL")
-    return owner, repo.removesuffix(".git")
+
+    if re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", ref):
+        owner, repo = ref.split("/", 1)
+        return owner, repo.removesuffix(".git")
+
+    sys.exit(f"error: cannot parse GitHub repo from {ref!r}; pass 'owner/repo' "
+             "or a github.com URL")
 
 
 def spdx_license(meta: dict) -> str:

@@ -77,17 +77,26 @@ def _release_tuple(version: str) -> tuple[int, ...]:
 
 def _parse_version(
     version: str,
-) -> tuple[tuple[int, ...], tuple[int, int, int], tuple[int, int]] | None:
-    """Parse a version into comparable tuples covering release, pre, and post tags.
+) -> tuple[int, tuple[int, ...], tuple[int, int, int], tuple[int, int], tuple[int, int]] | None:
+    """Parse a version into comparable tuples covering epoch, release, pre, post, and dev.
 
-    Ordering semantics: dev < pre < final < post.
+    Ordering semantics conform to PEP 440:
+    dev < pre < final < post.
     """
-    match = re.match(
+    v = version.strip()
+    epoch = 0
+    if "!" in v:
+        epoch_str, v = v.split("!", 1)
+        if not epoch_str.isdigit():
+            return None
+        epoch = int(epoch_str)
+
+    match = re.fullmatch(
         r"^v?(\d+(?:\.\d+)*)"
         r"(?:[-._]?(a|alpha|b|beta|rc|c|pre|preview)[-._]?(\d*))?"
         r"(?:[-._]?(post|rev|r)[-._]?(\d*))?"
-        r"(?:[-._]?(dev)[-._]?(\d*))?",
-        version.strip(),
+        r"(?:[-._]?(dev)[-._]?(\d*))?$",
+        v,
         re.IGNORECASE,
     )
     if not match:
@@ -95,53 +104,56 @@ def _parse_version(
     base_str, pre_tag, pre_num, post_tag, post_num, dev_tag, dev_num = match.groups()
     base = tuple(int(part) for part in base_str.split("."))
 
-    # Pre-release tag ranking: dev (-2) < pre (-1) < final (0)
-    pre_val = (0, 0, 0)
-    if dev_tag:
-        pre_val = (-2, 0, int(dev_num) if dev_num else 0)
-    elif pre_tag:
-        tag_order = {
-            "a": 1,
-            "alpha": 1,
-            "b": 2,
-            "beta": 2,
-            "rc": 3,
-            "c": 3,
-            "pre": 3,
-            "preview": 3,
-        }
+    tag_order = {
+        "a": 1,
+        "alpha": 1,
+        "b": 2,
+        "beta": 2,
+        "rc": 3,
+        "c": 3,
+        "pre": 3,
+        "preview": 3,
+    }
+    if pre_tag:
         pre_val = (
             -1,
             tag_order.get(pre_tag.lower(), 0),
             int(pre_num) if pre_num else 0,
         )
+    elif dev_tag and not post_tag:
+        pre_val = (-2, 0, 0)
+    else:
+        pre_val = (0, 0, 0)
 
     post_val = (1, int(post_num) if post_num else 0) if post_tag else (0, 0)
-    return base, pre_val, post_val
+    dev_val = (-1, int(dev_num) if dev_num else 0) if dev_tag else (0, 0)
+    return epoch, base, pre_val, post_val, dev_val
 
 
 def _is_downgrade(latest: str, current: str) -> bool:
     """True only when ``latest`` is unambiguously an older release than ``current``.
 
-    Compares parsed version tuples including pre-releases and post-releases.
-    Returns False when either side has no parseable release, so anything
-    ambiguous proceeds and is caught in PR review rather than silently skipped.
-    Guards against a yanked PyPI release or a deleted GitHub release making
-    "latest" move backward.
+    Compares parsed version tuples including epoch, pre-releases, post-releases,
+    and dev-releases. Returns False when either side has no parseable release,
+    so anything ambiguous proceeds and is caught in PR review rather than silently
+    skipped. Guards against a yanked PyPI release or a deleted GitHub release
+    making "latest" move backward.
     """
     latest_parsed = _parse_version(latest)
     current_parsed = _parse_version(current)
     if not latest_parsed or not current_parsed:
         return False
-    latest_base, latest_pre, latest_post = latest_parsed
-    current_base, current_pre, current_post = current_parsed
-    width = max(len(latest_base), len(current_base))
-    latest_base += (0,) * (width - len(latest_base))
-    current_base += (0,) * (width - len(current_base))
-    return (latest_base, latest_pre, latest_post) < (
-        current_base,
-        current_pre,
-        current_post,
+    l_epoch, l_base, l_pre, l_post, l_dev = latest_parsed
+    c_epoch, c_base, c_pre, c_post, c_dev = current_parsed
+    width = max(len(l_base), len(c_base))
+    l_base += (0,) * (width - len(l_base))
+    c_base += (0,) * (width - len(c_base))
+    return (l_epoch, l_base, l_pre, l_post, l_dev) < (
+        c_epoch,
+        c_base,
+        c_pre,
+        c_post,
+        c_dev,
     )
 
 

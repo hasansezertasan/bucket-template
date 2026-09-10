@@ -81,6 +81,20 @@ class DowngradeTest(unittest.TestCase):
         self.assertTrue(um._is_downgrade("1.2rc1", "1.2"))
         self.assertFalse(um._is_downgrade("1.2", "1.2rc1"))
 
+    def test_epoch_downgrade(self) -> None:
+        self.assertTrue(um._is_downgrade("1!1.9", "1!2.0"))
+        self.assertFalse(um._is_downgrade("1!2.0", "1!1.9"))
+        self.assertFalse(um._is_downgrade("1!1.0", "2.0"))
+        self.assertTrue(um._is_downgrade("2.0", "1!1.0"))
+
+    def test_dev_release_downgrade(self) -> None:
+        # Dev release is older than its final or pre-release target
+        self.assertTrue(um._is_downgrade("1.2b1.dev1", "1.2b1"))
+        self.assertFalse(um._is_downgrade("1.2b1", "1.2b1.dev1"))
+        # Later pre-release with dev tag is still newer than earlier pre-release
+        self.assertFalse(um._is_downgrade("1.2b1.dev1", "1.2a1"))
+        self.assertTrue(um._is_downgrade("1.2a1", "1.2b1.dev1"))
+
 
 class LatestGithubTest(unittest.TestCase):
     def test_tag_stripping(self) -> None:

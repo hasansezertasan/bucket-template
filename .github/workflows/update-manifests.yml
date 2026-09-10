@@ -45,15 +45,17 @@ jobs:
         run: |
           # PACKAGE is empty for "update all"; pass it as an argument only when
           # set (an empty "" arg would be read as a family filter matching nothing).
+          update_status=0
           {
             echo 'summary<<SUMMARY_EOF'
             if [ -n "$PACKAGE" ]; then
-              python scripts/update_manifests.py "$PACKAGE"
+              python scripts/update_manifests.py "$PACKAGE" || update_status=$?
             else
-              python scripts/update_manifests.py
+              python scripts/update_manifests.py || update_status=$?
             fi
             echo 'SUMMARY_EOF'
           } >> "$GITHUB_OUTPUT"
+          echo "has_failures=$([ "$update_status" -ne 0 ] && echo 'true' || echo 'false')" >> "$GITHUB_OUTPUT"
       - name: Create Pull Request
         if: github.event_name != 'workflow_dispatch' || inputs.dry_run != true
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1  # v8.1.1
@@ -72,3 +74,8 @@ jobs:
           branch: auto-update/scheduled
           delete-branch: true
           labels: automated,dependencies
+      - name: Check update status
+        if: steps.update.outputs.has_failures == 'true'
+        run: |
+          echo "::error::One or more manifests failed to update. Check the update step logs for details."
+          exit 1
