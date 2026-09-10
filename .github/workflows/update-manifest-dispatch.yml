@@ -73,11 +73,13 @@ jobs:
           # the validated value from $GITHUB_ENV (set by the step above).
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          update_status=0
           {
             echo 'summary<<SUMMARY_EOF'
-            python scripts/update_manifests.py "$PACKAGE"
+            python scripts/update_manifests.py "$PACKAGE" || update_status=$?
             echo 'SUMMARY_EOF'
           } >> "$GITHUB_OUTPUT"
+          echo "has_failures=$([ "$update_status" -ne 0 ] && echo 'true' || echo 'false')" >> "$GITHUB_OUTPUT"
           # A dispatch fires in response to a publish, so "nothing changed" is a
           # signal worth surfacing — the updater may have hit a misconfigured
           # checkver, an unpublished asset, or a yank (see the logs above).
@@ -107,6 +109,11 @@ jobs:
           branch: auto-update/${{ env.PACKAGE }}
           delete-branch: true
           labels: automated,dependencies
+      - name: Check update status
+        if: steps.update.outputs.has_failures == 'true'
+        run: |
+          echo "::error::One or more manifests failed to update. Check the update step logs for details."
+          exit 1
       - name: Report failure
         # Fire-and-forget dispatch hides failures from the producer, so surface
         # them as an issue on this bucket. No

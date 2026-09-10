@@ -34,7 +34,7 @@ import urllib.request
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlsplit, urlunsplit
 
 from bucket_repository import resolve as resolve_bucket_repository
 from url_fetch import get_json as fetch_json
@@ -233,8 +233,8 @@ def inspect_zip(path: str, token: str) -> tuple[str | None, str | None, str]:
     try:
         with zipfile.ZipFile(path) as archive:
             names = [n for n in archive.namelist() if n and not n.endswith("/")]
-    except zipfile.BadZipFile:
-        return None, None, f"{path} is not a valid .zip; verify the asset by hand"
+    except zipfile.BadZipFile as exc:
+        sys.exit(f"error: downloaded archive is not a valid .zip: {exc}")
 
     tops = {n.split("/", 1)[0] for n in names}
     nested = any("/" in n for n in names)
@@ -275,11 +275,17 @@ def templatize(text: str, version: str) -> str:
     """Replace the literal version in a URL/tag with Scoop's ``$version`` template."""
     if not version:
         return text
-    if version not in text:
-        print(f"warning: version {version!r} not found in {text!r}; that part of the "
-              "URL won't auto-update on release bumps — verify the manifest",
-              file=sys.stderr)
-    return text.replace(version, "$version")
+    target = version
+    if target not in text:
+        quoted = quote(version)
+        if quoted in text:
+            target = quoted
+        else:
+            print(f"warning: version {version!r} not found in {text!r}; that part of the "
+                  "URL won't auto-update on release bumps — verify the manifest",
+                  file=sys.stderr)
+            return text
+    return text.replace(target, "$version")
 
 
 def render_binary(spec: BinaryManifestSpec) -> dict:
@@ -367,10 +373,19 @@ def add_binary(args: argparse.Namespace) -> None:
                 exe = full_exe
         if not exe:
             sys.exit(f"error: {hint or 'could not determine the executable'}")
-        concrete_url = (f"https://github.com/{owner}/{repo}/releases/download/"
-                        f"{tag}/{artifact}")
-        autoupdate_url = (f"https://github.com/{owner}/{repo}/releases/download/"
-                          f"{templatize(tag, version)}/{templatize(artifact, version)}")
+        concrete_url = asset["browser_download_url"]
+        parts = urlsplit(concrete_url)
+        prefix, sep, rest = parts.path.partition("/releases/download/")
+        if sep:
+            tag_part, slash, artifact_part = rest.partition("/")
+            templated_tag = templatize(tag_part, version)
+            templated_artifact = templatize(artifact_part, version)
+            autoupdate_path = f"{prefix}{sep}{templated_tag}{slash}{templated_artifact}"
+            autoupdate_url = urlunsplit(
+                (parts.scheme, parts.netloc, autoupdate_path, parts.query, parts.fragment)
+            )
+        else:
+            autoupdate_url = templatize(concrete_url, version)
 
     data = render_binary(
         BinaryManifestSpec(
@@ -456,9 +471,11 @@ def render_shim(spec: ShimManifestSpec) -> dict:
         "url": spec.noop_url,
         "hash": spec.noop_hash,
         "installer": {
-            "script": f"uv tool install {spec.package}==$version --force"
-            if spec.installer == "uv"
-            else f"pipx install {spec.package}==$version --force"
+            "script": (
+                f"uv tool install {spec.package}==$version --force"
+                if spec.installer == "uv"
+                else f"pipx ensurepath; pipx install {spec.package}==$version --force"
+            )
         },
         "uninstaller": {
             "script": f"uv tool uninstall {spec.package}"

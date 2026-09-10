@@ -12,6 +12,7 @@ import hashlib
 import io
 import os
 import sys
+import tempfile
 import types
 import unittest
 import urllib.error
@@ -79,6 +80,8 @@ class HelperTest(unittest.TestCase):
 
     def test_templatize_replaces_version(self) -> None:
         self.assertEqual(am.templatize("v1.2.3", "1.2.3"), "v$version")
+        self.assertEqual(am.templatize("release%231", "release#1"), "$version")
+        self.assertEqual(am.templatize("v1.0%2B2", "1.0+2"), "v$version")
 
     def test_templatize_warns_when_absent(self) -> None:
         buf = io.StringIO()
@@ -173,6 +176,18 @@ class InspectZipTest(unittest.TestCase):
         self.assertIsNone(exe)
         self.assertIn("no .exe", hint)
 
+    def test_corrupt_zip_exits(self) -> None:
+        fd, path = tempfile.mkstemp(suffix=".zip")
+        try:
+            with os.fdopen(fd, "wb") as f:
+                f.write(b"not a valid zip file")
+            with self.assertRaises(SystemExit) as ctx:
+                am.inspect_zip(path, "tool")
+            self.assertIn("not a valid .zip", str(ctx.exception))
+        finally:
+            if os.path.exists(path):
+                os.unlink(path)
+
 
 class SelectZipTest(unittest.TestCase):
     def test_lone_zip(self) -> None:
@@ -233,7 +248,7 @@ class RenderTest(unittest.TestCase):
         )
         self.assertEqual(data["depends"], "pipx")
         self.assertEqual(data["installer"]["script"],
-                         "pipx install widget==$version --force")
+                         "pipx ensurepath; pipx install widget==$version --force")
         self.assertEqual(data["uninstaller"]["script"], "pipx uninstall widget")
 
     def test_binary_shape_and_extract_dir(self) -> None:
@@ -493,6 +508,83 @@ class AddBinaryTest(unittest.TestCase):
             self.assertRaises(SystemExit),
         ):
             am.add_binary(args)
+
+    def test_add_binary_preserves_url_encoding(self) -> None:
+        meta = {"html_url": "https://github.com/o/r", "description": "tool"}
+        release = {
+            "tag_name": "release#1",
+            "assets": [
+                {
+                    "name": "tool#1.zip",
+                    "browser_download_url": "https://github.com/o/r/releases/download/release%231/tool%231.zip",
+                }
+            ],
+        }
+        args = argparse.Namespace(
+            repo="o/r",
+            name="tool",
+            seed=False,
+            artifact="tool#1.zip",
+            extract_dir=None,
+            bin="tool.exe",
+        )
+        written = {}
+
+        def fake_write(name: str, data: dict) -> Path:
+            written["name"] = name
+            written["data"] = data
+            return Path(f"bucket/{name}.json")
+
+        with (
+            mock.patch.object(am, "fetch_json", side_effect=[meta, release]),
+            mock.patch.object(am, "download_zip", return_value="/tmp/fake.zip"),
+            mock.patch.object(am, "sha256_of_file", return_value="0" * 64),
+            mock.patch.object(am, "inspect_zip", return_value=(None, "tool.exe", "")),
+            mock.patch.object(am, "_write_manifest", side_effect=fake_write),
+            mock.patch("os.unlink"),
+            mock.patch("sys.stdout"),
+            mock.patch("sys.stderr"),
+        ):
+            am.add_binary(args)
+
+        self.assertEqual(
+            written["data"]["architecture"]["64bit"]["url"],
+            "https://github.com/o/r/releases/download/release%231/tool%231.zip",
+        )
+        self.assertEqual(
+            written["data"]["autoupdate"]["architecture"]["64bit"]["url"],
+            "https://github.com/o/r/releases/download/$version/tool%231.zip",
+        )
+
+    def test_add_binary_fails_on_corrupt_zip_even_with_bin_supplied(self) -> None:
+        meta = {"html_url": "https://github.com/o/r", "description": "tool"}
+        release = {
+            "tag_name": "v1.0.0",
+            "assets": [{"name": "tool.zip", "browser_download_url": "https://example/tool.zip"}],
+        }
+        args = argparse.Namespace(
+            repo="o/r",
+            name="tool",
+            seed=False,
+            artifact="tool.zip",
+            extract_dir=None,
+            bin="tool.exe",
+        )
+        fd, path = tempfile.mkstemp(suffix=".zip")
+        try:
+            with os.fdopen(fd, "wb") as f:
+                f.write(b"not a valid zip")
+            with (
+                mock.patch.object(am, "fetch_json", side_effect=[meta, release]),
+                mock.patch.object(am, "download_zip", return_value=path),
+                mock.patch("sys.stderr"),
+                self.assertRaises(SystemExit) as ctx,
+            ):
+                am.add_binary(args)
+            self.assertIn("not a valid .zip", str(ctx.exception))
+        finally:
+            if os.path.exists(path):
+                os.unlink(path)
 
 
 if __name__ == "__main__":
