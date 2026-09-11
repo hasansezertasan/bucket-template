@@ -38,7 +38,7 @@ import sys
 import urllib.error
 import urllib.request
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlsplit
 
 from url_fetch import get_json as _get_json
 from url_fetch import request
@@ -153,11 +153,11 @@ def _is_placeholder(data: dict) -> bool:
 def _is_shim(data: dict) -> bool:
     """True when the manifest is a Python package shim (pipx or uv tool)."""
     checkver_url = data.get("checkver", {}).get("url", "")
-    return (
-        data.get("depends") in ("pipx", "uv")
-        or bool(data.get("installer", {}).get("script"))
-        or (bool(checkver_url) and urlsplit(checkver_url).hostname == "pypi.org")
+    depends = data.get("depends")
+    is_pip_dep = depends in ("pipx", "uv") or (
+        isinstance(depends, list) and any(d in ("pipx", "uv") for d in depends)
     )
+    return is_pip_dep or (bool(checkver_url) and urlsplit(checkver_url).hostname == "pypi.org")
 
 
 def _is_downgrade(latest: str, current: str) -> bool:
@@ -220,24 +220,41 @@ def _update_manifest(path: Path) -> str | None:
     # writing a version whose download 404s (and don't fail the whole run).
     autoupdate = data.get("autoupdate", {})
     try:
-        if "architecture" in autoupdate:
+        manifest_arch = data.get("architecture")
+        has_manifest_arch = isinstance(manifest_arch, dict) and bool(manifest_arch)
+        if "architecture" in autoupdate or has_manifest_arch:
+            autoupdate_arch = autoupdate.get("architecture")
+            if not isinstance(autoupdate_arch, dict) or not autoupdate_arch:
+                raise KeyError(
+                    f"{path.name}: manifest has architecture specs but autoupdate.architecture is missing"
+                )
+            manifest_arch_keys = set(manifest_arch.keys()) if has_manifest_arch else set()
+            autoupdate_arch_keys = set(autoupdate_arch.keys())
+            missing = manifest_arch_keys - autoupdate_arch_keys
+            if missing:
+                raise KeyError(
+                    f"architecture(s) {sorted(missing)} in manifest missing from autoupdate.architecture"
+                )
+            extra = autoupdate_arch_keys - manifest_arch_keys
+            if extra:
+                raise KeyError(
+                    f"architecture(s) {sorted(extra)} in autoupdate but not in manifest"
+                )
             new_arch = {}
-            for arch, spec in autoupdate["architecture"].items():
+            for arch, spec in autoupdate_arch.items():
                 if "url" not in spec:
                     raise KeyError(f"autoupdate.architecture.{arch} missing 'url'")
                 if "$version" not in spec["url"]:
                     raise ValueError(
                         f"autoupdate.architecture.{arch}.url has no '$version' placeholder"
                     )
-                url = spec["url"].replace("$version", latest)
+                url = spec["url"].replace("$version", quote(latest, safe=""))
                 new_arch[arch] = (url, _sha256(url))
             for arch, (url, digest) in new_arch.items():
-                if arch not in data.get("architecture", {}):
-                    raise KeyError(f"architecture.{arch} in autoupdate but not in manifest")
                 data["architecture"][arch]["url"] = url
                 data["architecture"][arch]["hash"] = digest
         elif "$version" in autoupdate.get("url", ""):
-            url = autoupdate["url"].replace("$version", latest)
+            url = autoupdate["url"].replace("$version", quote(latest, safe=""))
             data["url"], data["hash"] = url, _sha256(url)
         elif not _is_shim(data):
             raise ValueError(f"{path.name}: binary manifest has no autoupdate URL with '$version'")

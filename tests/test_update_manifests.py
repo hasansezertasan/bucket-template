@@ -231,11 +231,173 @@ class UpdateManifestTest(unittest.TestCase):
     def test_is_shim(self) -> None:
         self.assertTrue(um._is_shim({"depends": "pipx"}))
         self.assertTrue(um._is_shim({"depends": "uv"}))
-        self.assertTrue(um._is_shim({"installer": {"script": "pipx install foo"}}))
+        self.assertTrue(um._is_shim({"depends": ["pipx"]}))
+        self.assertTrue(um._is_shim({"depends": ["python", "uv"]}))
         self.assertTrue(
             um._is_shim({"checkver": {"url": "https://pypi.org/pypi/foo/json"}})
         )
+        self.assertFalse(um._is_shim({"installer": {"script": "pipx install foo"}}))
         self.assertFalse(um._is_shim({"checkver": {"github": "https://github.com/o/r"}}))
+
+    def test_binary_manifest_with_installer_script_without_autoupdate_raises(self) -> None:
+        manifest = {
+            "version": "0.1.0",
+            "url": "https://github.com/o/r/releases/download/v0.1.0/widget.zip",
+            "hash": "0" * 64,
+            "checkver": {"github": "https://github.com/o/r"},
+            "installer": {"script": "echo install"},
+        }
+        tmp = TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        path = _write(Path(tmp.name), "widget", manifest)
+        with mock.patch.object(um, "_latest_github", return_value="0.2.0"):
+            with self.assertRaises(ValueError) as ctx:
+                um._update_manifest(path)
+        self.assertIn("has no autoupdate URL with '$version'", str(ctx.exception))
+
+    def test_update_manifest_encodes_version_in_urls(self) -> None:
+        manifest = {
+            **GITHUB,
+            "autoupdate": {
+                "architecture": {
+                    "64bit": {
+                        "url": "https://github.com/o/r/releases/download/$version/widget.zip"
+                    }
+                }
+            },
+        }
+        tmp = TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        path = _write(Path(tmp.name), "widget", manifest)
+        fetched_urls = []
+
+        def fake_sha256(url: str) -> str:
+            fetched_urls.append(url)
+            return "b" * 64
+
+        with (
+            mock.patch.object(um, "_latest_github", return_value="release#2"),
+            mock.patch.object(um, "_sha256", side_effect=fake_sha256),
+        ):
+            note = um._update_manifest(path)
+        self.assertEqual(note, "`0.1.0` → `release#2`")
+        self.assertEqual(
+            fetched_urls,
+            ["https://github.com/o/r/releases/download/release%232/widget.zip"],
+        )
+        written = json.loads(path.read_text())
+        self.assertEqual(written["version"], "release#2")
+        self.assertEqual(
+            written["architecture"]["64bit"]["url"],
+            "https://github.com/o/r/releases/download/release%232/widget.zip",
+        )
+
+    def test_update_manifest_encodes_version_in_top_level_url(self) -> None:
+        manifest = {
+            "version": "0.1.0",
+            "url": "https://github.com/o/r/releases/download/v0.1.0/widget.zip",
+            "hash": "0" * 64,
+            "checkver": {"github": "https://github.com/o/r"},
+            "autoupdate": {
+                "url": "https://github.com/o/r/releases/download/$version/widget.zip"
+            },
+        }
+        tmp = TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        path = _write(Path(tmp.name), "widget", manifest)
+        fetched_urls = []
+
+        def fake_sha256(url: str) -> str:
+            fetched_urls.append(url)
+            return "b" * 64
+
+        with (
+            mock.patch.object(um, "_latest_github", return_value="release#2"),
+            mock.patch.object(um, "_sha256", side_effect=fake_sha256),
+        ):
+            note = um._update_manifest(path)
+        self.assertEqual(note, "`0.1.0` → `release#2`")
+        self.assertEqual(
+            fetched_urls,
+            ["https://github.com/o/r/releases/download/release%232/widget.zip"],
+        )
+        written = json.loads(path.read_text())
+        self.assertEqual(
+            written["url"],
+            "https://github.com/o/r/releases/download/release%232/widget.zip",
+        )
+
+    def test_manifest_missing_architecture_in_autoupdate_raises(self) -> None:
+        manifest = {
+            "version": "0.1.0",
+            "architecture": {
+                "64bit": {
+                    "url": "https://github.com/o/r/releases/download/v0.1.0/widget64.zip",
+                    "hash": "0" * 64,
+                },
+                "arm64": {
+                    "url": "https://github.com/o/r/releases/download/v0.1.0/widgetarm.zip",
+                    "hash": "0" * 64,
+                },
+            },
+            "checkver": {"github": "https://github.com/o/r"},
+            "autoupdate": {
+                "architecture": {
+                    "64bit": {
+                        "url": "https://github.com/o/r/releases/download/v$version/widget64.zip"
+                    }
+                }
+            },
+        }
+        tmp = TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        path = _write(Path(tmp.name), "widget", manifest)
+        with mock.patch.object(um, "_latest_github", return_value="0.2.0"):
+            with self.assertRaises(KeyError) as ctx:
+                um._update_manifest(path)
+        self.assertIn("missing from autoupdate.architecture", str(ctx.exception))
+        self.assertIn("arm64", str(ctx.exception))
+
+    def test_autoupdate_extra_architecture_not_in_manifest_raises(self) -> None:
+        manifest = {
+            **GITHUB,
+            "autoupdate": {
+                "architecture": {
+                    "64bit": {
+                        "url": "https://github.com/o/r/releases/download/v$version/widget64.zip"
+                    },
+                    "32bit": {
+                        "url": "https://github.com/o/r/releases/download/v$version/widget32.zip"
+                    },
+                }
+            },
+        }
+        tmp = TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        path = _write(Path(tmp.name), "widget", manifest)
+        with mock.patch.object(um, "_latest_github", return_value="0.2.0"):
+            with self.assertRaises(KeyError) as ctx:
+                um._update_manifest(path)
+        self.assertIn("in autoupdate but not in manifest", str(ctx.exception))
+        self.assertIn("32bit", str(ctx.exception))
+
+    def test_manifest_with_arch_specs_missing_autoupdate_arch_raises(self) -> None:
+        manifest = {
+            **GITHUB,
+            "autoupdate": {
+                "url": "https://github.com/o/r/releases/download/v$version/widget.zip"
+            },
+        }
+        tmp = TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        path = _write(Path(tmp.name), "widget", manifest)
+        with mock.patch.object(um, "_latest_github", return_value="0.2.0"):
+            with self.assertRaises(KeyError) as ctx:
+                um._update_manifest(path)
+        self.assertIn(
+            "manifest has architecture specs but autoupdate.architecture is missing",
+            str(ctx.exception),
+        )
 
     def test_binary_manifest_without_version_in_arch_url_raises(self) -> None:
         manifest = {
