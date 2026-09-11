@@ -296,6 +296,35 @@ class RenderTest(unittest.TestCase):
         )
         self.assertNotIn("extract_dir", data["architecture"]["64bit"])
 
+    def test_binary_renders_autoupdate_extract_dir_and_bin(self) -> None:
+        data = am.render_binary(
+            am.BinaryManifestSpec(
+                token="widget",
+                repository_url="https://github.com/o/widget",
+                description="Demo",
+                license_id="MIT",
+                version="1.2.3",
+                download_url="https://github.com/o/widget/releases/download/v1.2.3/widget-1.2.3.zip",
+                sha256="a" * 64,
+                extract_dir="widget-1.2.3",
+                executable="widget-1.2.3.exe",
+                autoupdate_url="https://github.com/o/widget/releases/download/v$version/widget-$version.zip",
+                autoupdate_extract_dir="widget-$version",
+                autoupdate_bin="widget-$version.exe",
+            )
+        )
+        self.assertEqual(data["architecture"]["64bit"]["extract_dir"], "widget-1.2.3")
+        self.assertEqual(data["bin"], "widget-1.2.3.exe")
+        self.assertEqual(
+            data["autoupdate"]["architecture"]["64bit"]["extract_dir"],
+            "widget-$version",
+        )
+        self.assertEqual(data["autoupdate"]["bin"], "widget-$version.exe")
+        self.assertEqual(
+            data["autoupdate"]["shortcuts"],
+            [["widget-$version.exe", "widget"]],
+        )
+
 
 class AddShimTest(unittest.TestCase):
     def _run(self, info: dict, **ns):
@@ -651,6 +680,60 @@ class AddBinaryTest(unittest.TestCase):
         self.assertEqual(
             written["data"]["autoupdate"]["architecture"]["64bit"]["url"],
             "https://github.com/o/r/releases/download/v$version/tool.zip",
+        )
+
+    def test_add_binary_templatizes_versioned_paths(self) -> None:
+        meta = {"html_url": "https://github.com/o/r", "description": "widget"}
+        release = {
+            "tag_name": "v1.2.3",
+            "assets": [
+                {
+                    "name": "widget-1.2.3.zip",
+                    "browser_download_url": "https://github.com/o/r/releases/download/v1.2.3/widget-1.2.3.zip",
+                }
+            ],
+        }
+        args = argparse.Namespace(
+            repo="o/r",
+            name="widget",
+            seed=False,
+            artifact="widget-1.2.3.zip",
+            extract_dir=None,
+            bin=None,
+        )
+        written = {}
+
+        def fake_write(name: str, data: dict) -> Path:
+            written["name"] = name
+            written["data"] = data
+            return Path(f"bucket/{name}.json")
+
+        with (
+            mock.patch.object(am, "fetch_json", side_effect=[meta, release]),
+            mock.patch.object(am, "download_zip", return_value="/tmp/fake.zip"),
+            mock.patch.object(am, "sha256_of_file", return_value="0" * 64),
+            mock.patch.object(
+                am,
+                "inspect_zip",
+                return_value=("widget-1.2.3", "widget-1.2.3.exe", ""),
+            ),
+            mock.patch.object(am, "_write_manifest", side_effect=fake_write),
+            mock.patch("os.unlink"),
+            mock.patch("sys.stdout"),
+            mock.patch("sys.stderr"),
+        ):
+            am.add_binary(args)
+
+        self.assertEqual(written["data"]["architecture"]["64bit"]["extract_dir"], "widget-1.2.3")
+        self.assertEqual(written["data"]["bin"], "widget-1.2.3.exe")
+        self.assertEqual(
+            written["data"]["autoupdate"]["architecture"]["64bit"]["extract_dir"],
+            "widget-$version",
+        )
+        self.assertEqual(written["data"]["autoupdate"]["bin"], "widget-$version.exe")
+        self.assertEqual(
+            written["data"]["autoupdate"]["shortcuts"],
+            [["widget-$version.exe", "widget"]],
         )
 
     def test_add_binary_fails_on_corrupt_zip_even_with_bin_supplied(self) -> None:

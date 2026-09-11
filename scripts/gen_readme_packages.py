@@ -63,9 +63,9 @@ def cell(value: str) -> str:
 def route(manifest: dict) -> str:
     """Classify a manifest into ``binary``/``pipx``/``uv`` from its fields."""
     depends = manifest.get("depends")
-    if depends == "pipx":
+    if depends == "pipx" or (isinstance(depends, list) and "pipx" in depends):
         return "pipx"
-    if depends == "uv":
+    if depends == "uv" or (isinstance(depends, list) and "uv" in depends):
         return "uv"
     return "binary"
 

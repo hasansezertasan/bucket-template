@@ -77,6 +77,17 @@ class DowngradeTest(unittest.TestCase):
         self.assertFalse(um._is_downgrade("1.2.post2", "1.2.post1"))
         self.assertTrue(um._is_downgrade("1.2.post1", "1.2.post2"))
 
+    def test_implicit_post_release_downgrade(self) -> None:
+        # PEP 440 implicit post release: 1.0-1 normalizes to 1.0.post1
+        self.assertTrue(um._is_downgrade("1.0", "1.0-1"))
+        self.assertFalse(um._is_downgrade("1.0-1", "1.0"))
+        self.assertTrue(um._is_downgrade("1.0-1", "1.0-2"))
+        self.assertFalse(um._is_downgrade("1.0-2", "1.0-1"))
+        self.assertFalse(um._is_downgrade("1.0-1", "1.0.post1"))
+        self.assertFalse(um._is_downgrade("1.0.post1", "1.0-1"))
+        self.assertTrue(um._is_downgrade("1.0-1", "1.0.post2"))
+        self.assertTrue(um._is_downgrade("1.0-1.dev1", "1.0-1"))
+
     def test_pre_release_downgrade(self) -> None:
         self.assertTrue(um._is_downgrade("1.2rc1", "1.2"))
         self.assertFalse(um._is_downgrade("1.2", "1.2rc1"))
@@ -326,6 +337,83 @@ class UpdateManifestTest(unittest.TestCase):
             written["url"],
             "https://github.com/o/r/releases/download/release%232/widget.zip",
         )
+
+    def test_update_manifest_updates_versioned_extract_dir_and_bin_from_autoupdate(self) -> None:
+        manifest = {
+            "version": "1.2.3",
+            "architecture": {
+                "64bit": {
+                    "url": "https://github.com/o/r/releases/download/v1.2.3/widget-1.2.3.zip",
+                    "hash": "0" * 64,
+                    "extract_dir": "widget-1.2.3",
+                }
+            },
+            "bin": "widget-1.2.3.exe",
+            "shortcuts": [["widget-1.2.3.exe", "widget"]],
+            "checkver": {"github": "https://github.com/o/r"},
+            "autoupdate": {
+                "architecture": {
+                    "64bit": {
+                        "url": "https://github.com/o/r/releases/download/v$version/widget-$version.zip",
+                        "extract_dir": "widget-$version",
+                    }
+                },
+                "bin": "widget-$version.exe",
+                "shortcuts": [["widget-$version.exe", "widget"]],
+            },
+        }
+        tmp = TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        path = _write(Path(tmp.name), "widget", manifest)
+
+        with (
+            mock.patch.object(um, "_latest_github", return_value="1.2.4"),
+            mock.patch.object(um, "_sha256", return_value="c" * 64),
+        ):
+            note = um._update_manifest(path)
+        self.assertEqual(note, "`1.2.3` → `1.2.4`")
+        written = json.loads(path.read_text())
+        self.assertEqual(written["version"], "1.2.4")
+        self.assertEqual(written["architecture"]["64bit"]["extract_dir"], "widget-1.2.4")
+        self.assertEqual(written["bin"], "widget-1.2.4.exe")
+        self.assertEqual(written["shortcuts"], [["widget-1.2.4.exe", "widget"]])
+
+    def test_update_manifest_updates_versioned_paths_fallback_without_autoupdate_templates(self) -> None:
+        manifest = {
+            "version": "1.2.3",
+            "architecture": {
+                "64bit": {
+                    "url": "https://github.com/o/r/releases/download/v1.2.3/widget-1.2.3.zip",
+                    "hash": "0" * 64,
+                    "extract_dir": "widget-1.2.3",
+                }
+            },
+            "bin": "widget-1.2.3.exe",
+            "shortcuts": [["widget-1.2.3.exe", "widget"]],
+            "checkver": {"github": "https://github.com/o/r"},
+            "autoupdate": {
+                "architecture": {
+                    "64bit": {
+                        "url": "https://github.com/o/r/releases/download/v$version/widget-$version.zip",
+                    }
+                },
+            },
+        }
+        tmp = TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        path = _write(Path(tmp.name), "widget", manifest)
+
+        with (
+            mock.patch.object(um, "_latest_github", return_value="1.2.4"),
+            mock.patch.object(um, "_sha256", return_value="d" * 64),
+        ):
+            note = um._update_manifest(path)
+        self.assertEqual(note, "`1.2.3` → `1.2.4`")
+        written = json.loads(path.read_text())
+        self.assertEqual(written["version"], "1.2.4")
+        self.assertEqual(written["architecture"]["64bit"]["extract_dir"], "widget-1.2.4")
+        self.assertEqual(written["bin"], "widget-1.2.4.exe")
+        self.assertEqual(written["shortcuts"], [["widget-1.2.4.exe", "widget"]])
 
     def test_manifest_missing_architecture_in_autoupdate_raises(self) -> None:
         manifest = {

@@ -73,6 +73,8 @@ class BinaryManifestSpec:
     extract_dir: str | None
     executable: str
     autoupdate_url: str
+    autoupdate_extract_dir: str | None = None
+    autoupdate_bin: str | None = None
 
 
 @dataclass(frozen=True)
@@ -300,6 +302,15 @@ def render_binary(spec: BinaryManifestSpec) -> dict:
     arch: dict = {"url": spec.download_url, "hash": spec.sha256}
     if spec.extract_dir:
         arch["extract_dir"] = spec.extract_dir
+    autoupdate_arch: dict = {"url": spec.autoupdate_url}
+    if spec.autoupdate_extract_dir:
+        autoupdate_arch["extract_dir"] = spec.autoupdate_extract_dir
+    autoupdate: dict = {
+        "architecture": {"64bit": autoupdate_arch}
+    }
+    if spec.autoupdate_bin:
+        autoupdate["bin"] = spec.autoupdate_bin
+        autoupdate["shortcuts"] = [[spec.autoupdate_bin, spec.token]]
     return {
         "version": spec.version,
         "description": spec.description,
@@ -309,9 +320,7 @@ def render_binary(spec: BinaryManifestSpec) -> dict:
         "bin": spec.executable,
         "shortcuts": [[spec.executable, spec.token]],
         "checkver": {"github": spec.repository_url},
-        "autoupdate": {
-            "architecture": {"64bit": {"url": spec.autoupdate_url}}
-        },
+        "autoupdate": autoupdate,
     }
 
 
@@ -394,6 +403,14 @@ def add_binary(args: argparse.Namespace) -> None:
         else:
             autoupdate_url = templatize(concrete_url, version)
 
+    autoupdate_extract_dir = None
+    if extract_dir and (version in extract_dir or quote(version, safe="") in extract_dir):
+        autoupdate_extract_dir = templatize(extract_dir, version)
+
+    autoupdate_bin = None
+    if exe and (version in exe or quote(version, safe="") in exe):
+        autoupdate_bin = templatize(exe, version)
+
     data = render_binary(
         BinaryManifestSpec(
             token=token,
@@ -406,6 +423,8 @@ def add_binary(args: argparse.Namespace) -> None:
             extract_dir=extract_dir,
             executable=exe,
             autoupdate_url=autoupdate_url,
+            autoupdate_extract_dir=autoupdate_extract_dir,
+            autoupdate_bin=autoupdate_bin,
         )
     )
     out = _write_manifest(token, data)

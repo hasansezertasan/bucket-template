@@ -101,14 +101,16 @@ def _parse_version(
     match = re.fullmatch(
         r"^v?(\d+(?:\.\d+)*)"
         r"(?:[-._]?(a|alpha|b|beta|rc|c|pre|preview)[-._]?(\d*))?"
-        r"(?:[-._]?(post|rev|r)[-._]?(\d*))?"
+        r"(?:[-._]?(post|rev|r)[-._]?(\d*)|-(\d+))?"
         r"(?:[-._]?(dev)[-._]?(\d*))?$",
         v,
         re.IGNORECASE,
     )
     if not match:
         return None
-    base_str, pre_tag, pre_num, post_tag, post_num, dev_tag, dev_num = match.groups()
+    base_str, pre_tag, pre_num, post_tag, post_num, implicit_post, dev_tag, dev_num = (
+        match.groups()
+    )
     base = tuple(int(part) for part in base_str.split("."))
 
     tag_order = {
@@ -127,12 +129,17 @@ def _parse_version(
             tag_order.get(pre_tag.lower(), 0),
             int(pre_num) if pre_num else 0,
         )
-    elif dev_tag and not post_tag:
+    elif dev_tag and not (post_tag or implicit_post):
         pre_val = (-2, 0, 0)
     else:
         pre_val = (0, 0, 0)
 
-    post_val = (1, int(post_num) if post_num else 0) if post_tag else (0, 0)
+    if post_tag or implicit_post:
+        post_number = implicit_post or post_num
+        post_val = (1, int(post_number) if post_number else 0)
+    else:
+        post_val = (0, 0)
+
     dev_val = (-1, int(dev_num) if dev_num else 0) if dev_tag else (0, 0)
     return epoch, base, pre_val, post_val, dev_val
 
@@ -253,11 +260,66 @@ def _update_manifest(path: Path) -> str | None:
             for arch, (url, digest) in new_arch.items():
                 data["architecture"][arch]["url"] = url
                 data["architecture"][arch]["hash"] = digest
+                if "extract_dir" in autoupdate_arch[arch]:
+                    data["architecture"][arch]["extract_dir"] = (
+                        autoupdate_arch[arch]["extract_dir"].replace("$version", latest)
+                    )
+                elif "extract_dir" in data["architecture"][arch]:
+                    current_extract = data["architecture"][arch]["extract_dir"]
+                    if isinstance(current_extract, str) and current in current_extract:
+                        data["architecture"][arch]["extract_dir"] = current_extract.replace(
+                            current, latest
+                        )
+                if "bin" in autoupdate_arch[arch]:
+                    data["architecture"][arch]["bin"] = (
+                        autoupdate_arch[arch]["bin"].replace("$version", latest)
+                    )
         elif "$version" in autoupdate.get("url", ""):
             url = autoupdate["url"].replace("$version", quote(latest, safe=""))
             data["url"], data["hash"] = url, _sha256(url)
         elif not _is_shim(data):
             raise ValueError(f"{path.name}: binary manifest has no autoupdate URL with '$version'")
+
+        if "extract_dir" in autoupdate:
+            data["extract_dir"] = autoupdate["extract_dir"].replace("$version", latest)
+        elif "extract_dir" in data:
+            current_extract = data["extract_dir"]
+            if isinstance(current_extract, str) and current in current_extract:
+                data["extract_dir"] = current_extract.replace(current, latest)
+
+        if "bin" in autoupdate:
+            old_bin = data.get("bin")
+            new_bin = autoupdate["bin"].replace("$version", latest)
+            data["bin"] = new_bin
+            if "shortcuts" in autoupdate:
+                data["shortcuts"] = [
+                    [
+                        part.replace("$version", latest) if isinstance(part, str) else part
+                        for part in item
+                    ]
+                    if isinstance(item, list)
+                    else item
+                    for item in autoupdate["shortcuts"]
+                ]
+            elif "shortcuts" in data and old_bin:
+                data["shortcuts"] = [
+                    [new_bin if part == old_bin else part for part in item]
+                    if isinstance(item, list)
+                    else item
+                    for item in data["shortcuts"]
+                ]
+        elif "bin" in data:
+            old_bin = data["bin"]
+            if isinstance(old_bin, str) and current in old_bin:
+                new_bin = old_bin.replace(current, latest)
+                data["bin"] = new_bin
+                if "shortcuts" in data:
+                    data["shortcuts"] = [
+                        [new_bin if part == old_bin else part for part in item]
+                        if isinstance(item, list)
+                        else item
+                        for item in data["shortcuts"]
+                    ]
     except urllib.error.HTTPError as exc:
         if exc.code == 404:
             print(

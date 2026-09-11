@@ -23,6 +23,11 @@ class RouteTest(unittest.TestCase):
         self.assertEqual(gen.route({"depends": "pipx"}), "pipx")
         self.assertEqual(gen.route({"depends": "uv"}), "uv")
 
+    def test_classifies_by_depends_list(self) -> None:
+        self.assertEqual(gen.route({"depends": ["python", "pipx"]}), "pipx")
+        self.assertEqual(gen.route({"depends": ["python", "uv"]}), "uv")
+        self.assertEqual(gen.route({"depends": ["git"]}), "binary")
+
     def test_binary_when_no_depends(self) -> None:
         self.assertEqual(gen.route({"bin": "widget.exe"}), "binary")
 
