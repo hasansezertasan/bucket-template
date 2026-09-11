@@ -228,6 +228,94 @@ class UpdateManifestTest(unittest.TestCase):
         self.assertIsNone(note)
         self.assertIn("unrecognized checkver", stderr.getvalue())
 
+    def test_is_shim(self) -> None:
+        self.assertTrue(um._is_shim({"depends": "pipx"}))
+        self.assertTrue(um._is_shim({"depends": "uv"}))
+        self.assertTrue(um._is_shim({"installer": {"script": "pipx install foo"}}))
+        self.assertTrue(
+            um._is_shim({"checkver": {"url": "https://pypi.org/pypi/foo/json"}})
+        )
+        self.assertFalse(um._is_shim({"checkver": {"github": "https://github.com/o/r"}}))
+
+    def test_binary_manifest_without_version_in_arch_url_raises(self) -> None:
+        manifest = {
+            **GITHUB,
+            "autoupdate": {
+                "architecture": {
+                    "64bit": {
+                        "url": "https://github.com/o/r/releases/download/v0.1.0/widget-windows.zip"
+                    }
+                }
+            },
+        }
+        tmp = TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        path = _write(Path(tmp.name), "widget", manifest)
+        with mock.patch.object(um, "_latest_github", return_value="0.2.0"):
+            with self.assertRaises(ValueError) as ctx:
+                um._update_manifest(path)
+        self.assertIn("has no '$version' placeholder", str(ctx.exception))
+
+    def test_binary_manifest_without_version_in_top_level_url_raises(self) -> None:
+        manifest = {
+            "version": "0.1.0",
+            "url": "https://github.com/o/r/releases/download/v0.1.0/widget.zip",
+            "hash": "0" * 64,
+            "checkver": {"github": "https://github.com/o/r"},
+            "autoupdate": {
+                "url": "https://github.com/o/r/releases/download/v0.1.0/widget.zip"
+            },
+        }
+        tmp = TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        path = _write(Path(tmp.name), "widget", manifest)
+        with mock.patch.object(um, "_latest_github", return_value="0.2.0"):
+            with self.assertRaises(ValueError) as ctx:
+                um._update_manifest(path)
+        self.assertIn("has no autoupdate URL with '$version'", str(ctx.exception))
+
+    def test_binary_manifest_without_autoupdate_raises(self) -> None:
+        manifest = {
+            "version": "0.1.0",
+            "url": "https://github.com/o/r/releases/download/v0.1.0/widget.zip",
+            "hash": "0" * 64,
+            "checkver": {"github": "https://github.com/o/r"},
+        }
+        tmp = TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        path = _write(Path(tmp.name), "widget", manifest)
+        with mock.patch.object(um, "_latest_github", return_value="0.2.0"):
+            with self.assertRaises(ValueError) as ctx:
+                um._update_manifest(path)
+        self.assertIn("has no autoupdate URL with '$version'", str(ctx.exception))
+
+    def test_binary_manifest_top_level_url_bump_rewrites_url_and_hash(self) -> None:
+        manifest = {
+            "version": "0.1.0",
+            "url": "https://github.com/o/r/releases/download/v0.1.0/widget.zip",
+            "hash": "0" * 64,
+            "checkver": {"github": "https://github.com/o/r"},
+            "autoupdate": {
+                "url": "https://github.com/o/r/releases/download/v$version/widget.zip"
+            },
+        }
+        tmp = TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        path = _write(Path(tmp.name), "widget", manifest)
+        with (
+            mock.patch.object(um, "_latest_github", return_value="0.2.0"),
+            mock.patch.object(um, "_sha256", return_value="b" * 64),
+        ):
+            note = um._update_manifest(path)
+        self.assertEqual(note, "`0.1.0` → `0.2.0`")
+        written = json.loads(path.read_text())
+        self.assertEqual(written["version"], "0.2.0")
+        self.assertEqual(
+            written["url"],
+            "https://github.com/o/r/releases/download/v0.2.0/widget.zip",
+        )
+        self.assertEqual(written["hash"], "b" * 64)
+
 
 class MainTest(unittest.TestCase):
     def _run(self, manifests: dict[str, dict], argv: list[str], **patches):

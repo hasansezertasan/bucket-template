@@ -278,8 +278,15 @@ def templatize(text: str, version: str) -> str:
     target = version
     if target not in text:
         quoted = quote(version)
+        quoted_slash = quote(version, safe="")
         if quoted in text:
             target = quoted
+        elif quoted_slash in text:
+            target = quoted_slash
+        elif quoted_slash.lower() in text:
+            target = quoted_slash.lower()
+        elif quoted_slash.upper() in text:
+            target = quoted_slash.upper()
         else:
             print(f"warning: version {version!r} not found in {text!r}; that part of the "
                   "URL won't auto-update on release bumps — verify the manifest",
@@ -377,7 +384,7 @@ def add_binary(args: argparse.Namespace) -> None:
         parts = urlsplit(concrete_url)
         prefix, sep, rest = parts.path.partition("/releases/download/")
         if sep:
-            tag_part, slash, artifact_part = rest.partition("/")
+            tag_part, slash, artifact_part = rest.rpartition("/")
             templated_tag = templatize(tag_part, version)
             templated_artifact = templatize(artifact_part, version)
             autoupdate_path = f"{prefix}{sep}{templated_tag}{slash}{templated_artifact}"

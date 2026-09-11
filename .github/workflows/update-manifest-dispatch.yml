@@ -53,9 +53,11 @@ jobs:
           if [[ ! "$RAW_PACKAGE" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
             echo "::error::invalid package token (must match ^[a-z0-9][a-z0-9-]*\$)"; exit 1
           fi
-          # Version is optional and informational; if present, restrict to safe chars.
-          if [ -n "$RAW_VERSION" ] && [[ ! "$RAW_VERSION" =~ ^[A-Za-z0-9][A-Za-z0-9._+-]*$ ]]; then
-            echo "::error::invalid version (must match ^[A-Za-z0-9][A-Za-z0-9._+-]*\$)"; exit 1
+          # Version is optional and informational; if present, permit valid upstream
+          # version formats (including PEP 440 epochs with '!' and tag paths with '/')
+          # while rejecting multiline or unsafe characters.
+          if [ -n "$RAW_VERSION" ] && [[ ! "$RAW_VERSION" =~ ^[A-Za-z0-9@][A-Za-z0-9._+!/@-]*$ ]]; then
+            echo "::error::invalid version (must match ^[A-Za-z0-9@][A-Za-z0-9._+!/@-]*\$)"; exit 1
           fi
           {
             echo "PACKAGE=$RAW_PACKAGE"

@@ -82,6 +82,9 @@ class HelperTest(unittest.TestCase):
         self.assertEqual(am.templatize("v1.2.3", "1.2.3"), "v$version")
         self.assertEqual(am.templatize("release%231", "release#1"), "$version")
         self.assertEqual(am.templatize("v1.0%2B2", "1.0+2"), "v$version")
+        self.assertEqual(am.templatize("v1%2F2", "1/2"), "v$version")
+        self.assertEqual(am.templatize("v1%2f2", "1/2"), "v$version")
+        self.assertEqual(am.templatize("tools/v1/2", "1/2"), "tools/v$version")
 
     def test_templatize_warns_when_absent(self) -> None:
         buf = io.StringIO()
@@ -554,6 +557,100 @@ class AddBinaryTest(unittest.TestCase):
         self.assertEqual(
             written["data"]["autoupdate"]["architecture"]["64bit"]["url"],
             "https://github.com/o/r/releases/download/$version/tool%231.zip",
+        )
+
+    def test_add_binary_handles_tag_with_slashes(self) -> None:
+        meta = {"html_url": "https://github.com/o/r", "description": "tool"}
+        release = {
+            "tag_name": "release/v1.0.0",
+            "assets": [
+                {
+                    "name": "tool.zip",
+                    "browser_download_url": "https://github.com/o/r/releases/download/release/v1.0.0/tool.zip",
+                }
+            ],
+        }
+        args = argparse.Namespace(
+            repo="o/r",
+            name="tool",
+            seed=False,
+            artifact="tool.zip",
+            extract_dir=None,
+            bin="tool.exe",
+        )
+        written = {}
+
+        def fake_write(name: str, data: dict) -> Path:
+            written["name"] = name
+            written["data"] = data
+            return Path(f"bucket/{name}.json")
+
+        with (
+            mock.patch.object(am, "fetch_json", side_effect=[meta, release]),
+            mock.patch.object(am, "download_zip", return_value="/tmp/fake.zip"),
+            mock.patch.object(am, "sha256_of_file", return_value="0" * 64),
+            mock.patch.object(am, "inspect_zip", return_value=(None, "tool.exe", "")),
+            mock.patch.object(am, "_write_manifest", side_effect=fake_write),
+            mock.patch("os.unlink"),
+            mock.patch("sys.stdout"),
+            mock.patch("sys.stderr"),
+        ):
+            am.add_binary(args)
+
+        self.assertEqual(
+            written["data"]["architecture"]["64bit"]["url"],
+            "https://github.com/o/r/releases/download/release/v1.0.0/tool.zip",
+        )
+        self.assertEqual(
+            written["data"]["autoupdate"]["architecture"]["64bit"]["url"],
+            "https://github.com/o/r/releases/download/$version/tool.zip",
+        )
+
+    def test_add_binary_handles_encoded_slashes(self) -> None:
+        meta = {"html_url": "https://github.com/o/r", "description": "tool"}
+        release = {
+            "tag_name": "v1/2",
+            "assets": [
+                {
+                    "name": "tool.zip",
+                    "browser_download_url": "https://github.com/o/r/releases/download/v1%2F2/tool.zip",
+                }
+            ],
+        }
+        args = argparse.Namespace(
+            repo="o/r",
+            name="tool",
+            seed=False,
+            artifact="tool.zip",
+            extract_dir=None,
+            bin="tool.exe",
+        )
+        written = {}
+
+        def fake_write(name: str, data: dict) -> Path:
+            written["name"] = name
+            written["data"] = data
+            return Path(f"bucket/{name}.json")
+
+        with (
+            mock.patch.object(am, "fetch_json", side_effect=[meta, release]),
+            mock.patch.object(am, "download_zip", return_value="/tmp/fake.zip"),
+            mock.patch.object(am, "sha256_of_file", return_value="0" * 64),
+            mock.patch.object(am, "inspect_zip", return_value=(None, "tool.exe", "")),
+            mock.patch.object(am, "_write_manifest", side_effect=fake_write),
+            mock.patch("os.unlink"),
+            mock.patch("sys.stdout"),
+            mock.patch("sys.stderr"),
+        ):
+            am.add_binary(args)
+
+        self.assertEqual(
+            written["data"]["architecture"]["64bit"]["url"],
+            "https://github.com/o/r/releases/download/v1%2F2/tool.zip",
+        )
+        self.assertEqual(
+            written["data"]["autoupdate"]["architecture"]["64bit"]["url"],
+            "https://github.com/o/r/releases/download/v$version/tool.zip",
         )
 
     def test_add_binary_fails_on_corrupt_zip_even_with_bin_supplied(self) -> None:

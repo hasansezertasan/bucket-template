@@ -150,6 +150,16 @@ def _is_placeholder(data: dict) -> bool:
     return False
 
 
+def _is_shim(data: dict) -> bool:
+    """True when the manifest is a Python package shim (pipx or uv tool)."""
+    checkver_url = data.get("checkver", {}).get("url", "")
+    return (
+        data.get("depends") in ("pipx", "uv")
+        or bool(data.get("installer", {}).get("script"))
+        or (bool(checkver_url) and urlsplit(checkver_url).hostname == "pypi.org")
+    )
+
+
 def _is_downgrade(latest: str, current: str) -> bool:
     """True only when ``latest`` is unambiguously an older release than ``current``.
 
@@ -215,6 +225,10 @@ def _update_manifest(path: Path) -> str | None:
             for arch, spec in autoupdate["architecture"].items():
                 if "url" not in spec:
                     raise KeyError(f"autoupdate.architecture.{arch} missing 'url'")
+                if "$version" not in spec["url"]:
+                    raise ValueError(
+                        f"autoupdate.architecture.{arch}.url has no '$version' placeholder"
+                    )
                 url = spec["url"].replace("$version", latest)
                 new_arch[arch] = (url, _sha256(url))
             for arch, (url, digest) in new_arch.items():
@@ -225,6 +239,8 @@ def _update_manifest(path: Path) -> str | None:
         elif "$version" in autoupdate.get("url", ""):
             url = autoupdate["url"].replace("$version", latest)
             data["url"], data["hash"] = url, _sha256(url)
+        elif not _is_shim(data):
+            raise ValueError(f"{path.name}: binary manifest has no autoupdate URL with '$version'")
     except urllib.error.HTTPError as exc:
         if exc.code == 404:
             print(
