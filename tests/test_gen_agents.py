@@ -42,6 +42,13 @@ class DropUnwantedTest(unittest.TestCase):
                 self.assertFalse((root / rel).exists(), rel)
             self.assertEqual(gen.expected_files(root), {*OUTPUTS, gen.MANIFEST})
 
+    def test_rewrites_manifest_with_lf(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            render(root, [*gen.DROPPED, *OUTPUTS])
+            gen.drop_unwanted(root)
+            self.assertNotIn(b"\r", (root / gen.MANIFEST).read_bytes())
+
     def test_tolerates_missing_file_and_manifest(self) -> None:
         with TemporaryDirectory() as tmp:
             gen.drop_unwanted(Path(tmp))

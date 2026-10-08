@@ -66,7 +66,9 @@ def drop_unwanted(root: Path) -> None:
     kept = [f for f in files if f not in DROPPED]
     if kept != files:
         data["files"] = kept
-        manifest.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+        # LF on every platform: .gitattributes checks it out as LF, and a CRLF
+        # render on Windows would make --check report it as stale.
+        manifest.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8", newline="\n")
 
 
 def expected_files(root: Path) -> set[str]:
