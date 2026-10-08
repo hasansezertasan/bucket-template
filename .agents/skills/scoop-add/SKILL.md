@@ -2,7 +2,7 @@
 name: scoop-add
 description: "Use when adding a PyPI shim or prebuilt Windows binary manifest to this Scoop bucket."
 # Content-Hash: blake3:2f994b835c534b0151c96143aef7178787edbbc4dca85a87b4794dd92d0f0bcc
-# Source-Hash: blake3:bbb5853823221019eae720565943474459732448867b0fe9ca559d98351eeba9
+# Source-Hash: blake3:4d564dd9781c73b98eef3e0b75c1195d21ea78ebe306de5c19792bf7d9854340
 ---
 
 # Add a Scoop Manifest

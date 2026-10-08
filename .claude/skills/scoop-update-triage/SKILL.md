@@ -3,7 +3,7 @@ description: Triage scheduled or release-dispatch Scoop updates that fail, skip 
 name: scoop-update-triage
 user_invocable: false
 # Content-Hash: blake3:9ffa792ee139be6a0400641f3780c4fa9869794ec8f712a0542ec8c1ccd63897
-# Source-Hash: blake3:bbb5853823221019eae720565943474459732448867b0fe9ca559d98351eeba9
+# Source-Hash: blake3:4d564dd9781c73b98eef3e0b75c1195d21ea78ebe306de5c19792bf7d9854340
 ---
 
 # Triage an automated update

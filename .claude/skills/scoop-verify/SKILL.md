@@ -3,7 +3,7 @@ description: Verify Scoop bucket changes before a PR or after adding, updating, 
 name: scoop-verify
 user_invocable: false
 # Content-Hash: blake3:e0190b0dfe3e92558f971210a36fb86cf5f865ed0b8459f32af248cd27a79280
-# Source-Hash: blake3:bbb5853823221019eae720565943474459732448867b0fe9ca559d98351eeba9
+# Source-Hash: blake3:4d564dd9781c73b98eef3e0b75c1195d21ea78ebe306de5c19792bf7d9854340
 ---
 
 # Verify a Scoop Bucket Change
