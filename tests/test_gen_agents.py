@@ -76,6 +76,14 @@ class CompareTest(unittest.TestCase):
             ["not generated: .agents/skills/old/SKILL.md"],
         )
 
+    def test_reports_unwanted_root_files(self) -> None:
+        write(self.repo, "CLAUDE.md")
+        write(self.repo, ".agents/settings.json", "{}\n")
+        self.assertEqual(
+            gen.compare(self.rendered, self.repo),
+            ["unwanted: CLAUDE.md", "unwanted: .agents/settings.json"],
+        )
+
     def test_ignores_claude_files_outside_skills(self) -> None:
         write(self.repo, ".claude/settings.local.json", "{}\n")
         self.assertEqual(gen.compare(self.rendered, self.repo), [])

@@ -12,9 +12,8 @@ reproducible:
   registers an MCP server launched with ``npx -y ai-rulez@latest``, an unpinned
   package an agent would run at session start.
 - ``--check`` renders into a temporary copy and compares it with the working
-  tree, so a stale or hand-edited output fails without the check modifying any
-  file. Existing outputs are seeded into the copy first: ai-rulez skips files
-  whose content is unchanged, which keeps their ``Generated:`` timestamp stable.
+  tree, so a stale, missing, hand-edited, or unwanted output fails without the
+  check modifying any file.
 
 Standard library only; requires the ``ai-rulez`` binary from ``mise install``.
 """
@@ -37,8 +36,6 @@ DROPPED = ("CLAUDE.md", "GEMINI.md", ".agents/settings.json")
 # Directories owned entirely by generation; any other file in them is stale.
 # Only skills/ under .claude/, since .claude/ also holds local user settings.
 OWNED_DIRS = (".claude/skills", ".agents")
-# Seeded into the temporary copy so unchanged outputs keep their timestamps.
-SEED = ("AGENTS.md", ".claude/skills", ".agents")
 
 
 def run_ai_rulez(root: Path) -> None:
@@ -96,7 +93,11 @@ def compare(rendered: Path, repo: Path) -> list[str]:
             problems.append(f"missing: {rel}")
         elif not filecmp.cmp(rendered / rel, target, shallow=False):
             problems.append(f"stale: {rel}")
-    problems.extend(f"not generated: {rel}" for rel in sorted(owned_files(repo) - expected))
+    leftover = owned_files(repo) - expected - set(DROPPED)
+    problems.extend(f"not generated: {rel}" for rel in sorted(leftover))
+    # A dropped file reappearing (say, a hand-written CLAUDE.md) would shadow or
+    # contradict AGENTS.md for the agent that reads it.
+    problems.extend(f"unwanted: {rel}" for rel in DROPPED if (repo / rel).is_file())
     return problems
 
 
@@ -104,12 +105,6 @@ def check() -> int:
     with tempfile.TemporaryDirectory() as tmp:
         work = Path(tmp)
         shutil.copytree(REPO / CONFIG_DIR, work / CONFIG_DIR)
-        for rel in SEED:
-            source = REPO / rel
-            if source.is_dir():
-                shutil.copytree(source, work / rel)
-            elif source.is_file():
-                shutil.copy2(source, work / rel)
         run_ai_rulez(work)
         problems = compare(work, REPO)
     if problems:
