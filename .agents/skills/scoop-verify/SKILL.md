@@ -2,7 +2,7 @@
 name: scoop-verify
 description: "Verify Scoop bucket changes before a PR or after adding, updating, repairing, or removing a manifest. Use for pre-PR checks, noop URL/hash consistency, smoke commands, placeholder hashes, and deciding whether Windows installation evidence is needed."
 # Content-Hash: blake3:e0190b0dfe3e92558f971210a36fb86cf5f865ed0b8459f32af248cd27a79280
-# Source-Hash: blake3:bd9d29dfc8b80a6447359787db0171d094363405ae35dcc7fa28ec3bf50e9360
+# Source-Hash: blake3:c222bc350b1e2b18d3c7891846a7c327568005d5c5d9c732401856ed04bbc634
 ---
 
 # Verify a Scoop Bucket Change
