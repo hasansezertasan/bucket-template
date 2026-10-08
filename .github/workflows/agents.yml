@@ -14,9 +14,9 @@ on:
       - '.ai-rulez/**'
       - '.agents/**'
       - '.claude/**'
-      - 'AGENTS.md'
-      - 'CLAUDE.md'
-      - 'GEMINI.md'
+      # Also catches forbidden root instruction files if reintroduced, without
+      # action-validator requiring those intentionally absent files to exist.
+      - '*.md'
       - 'scripts/gen_agents.py'
       - '.config/mise.toml'
       - '.github/workflows/agents.yml'
@@ -26,9 +26,7 @@ on:
       - '.ai-rulez/**'
       - '.agents/**'
       - '.claude/**'
-      - 'AGENTS.md'
-      - 'CLAUDE.md'
-      - 'GEMINI.md'
+      - '*.md'
       - 'scripts/gen_agents.py'
       - '.config/mise.toml'
       - '.github/workflows/agents.yml'
