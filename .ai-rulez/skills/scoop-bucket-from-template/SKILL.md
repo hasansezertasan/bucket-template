@@ -112,7 +112,10 @@ For a PyPI shim, establish the new bucket identity **before** scaffolding:
 `--bucket-repository` takes precedence over `SCOOP_BUCKET_REPOSITORY`, which takes
 precedence over GitHub `origin`. Inspect stale overrides even with a correct
 remote. For an archive/non-GitHub checkout, use the explicit new repository;
-use `--bucket-ref` for an agreed published ref other than the default `main`.
+ref selection independently follows `--bucket-ref` → `SCOOP_BUCKET_REF` → `main`.
+Inspect stale ref overrides too, and reconcile the effective ref with the agreed
+publication ref even when that is `main`. Do not leave permanent shim URLs on a
+temporary setup branch that may be deleted.
 
 The scaffolder hashes local `scripts/noop.ps1` bytes normalized CRLF→LF; it does
 not fetch the generated raw URL. Ensure the intended file is published at the

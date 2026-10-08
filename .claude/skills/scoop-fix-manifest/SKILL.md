@@ -3,7 +3,7 @@ description: Diagnose and repair existing Scoop manifests when checkver stops ma
 name: scoop-fix-manifest
 user_invocable: false
 # Content-Hash: blake3:697425c0efc090913e2d90b3ba2f036d58841f2c8730b39c6612c352a097d55f
-# Source-Hash: blake3:b42a1b811f52a753834a1ff3df790dd0277e1ab4a6e2022e73f39dc278972964
+# Source-Hash: blake3:9c88dc17b8131f1e678d71fad5c870d461ef72f5cabcc61c164922daeaff86a7
 ---
 
 # Repair a Scoop Manifest

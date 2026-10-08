@@ -1,8 +1,8 @@
 ---
 name: scoop-bucket-from-template
 description: "Set up a new Scoop bucket from this template, including repository identity, Actions settings, update tokens, shim noop publication, and the first manifest. Use for template adoption or bootstrap questions about SCOOP_BUCKET_TOKEN versus WORKFLOW_TOKEN; delegate manifest creation and verification to scoop-add and scoop-verify."
-# Content-Hash: blake3:4badc76de28b45b8926f9080c8c880b2bf3d7133d42870ebf3175dfd72636d6b
-# Source-Hash: blake3:b42a1b811f52a753834a1ff3df790dd0277e1ab4a6e2022e73f39dc278972964
+# Content-Hash: blake3:4063254069d6dd13f08fad66429f083a3bc44ba62a3acfdb53e7a8f3d66e1e92
+# Source-Hash: blake3:9c88dc17b8131f1e678d71fad5c870d461ef72f5cabcc61c164922daeaff86a7
 ---
 
 # Set Up a Scoop Bucket from the Template
@@ -114,7 +114,10 @@ For a PyPI shim, establish the new bucket identity **before** scaffolding:
 `--bucket-repository` takes precedence over `SCOOP_BUCKET_REPOSITORY`, which takes
 precedence over GitHub `origin`. Inspect stale overrides even with a correct
 remote. For an archive/non-GitHub checkout, use the explicit new repository;
-use `--bucket-ref` for an agreed published ref other than the default `main`.
+ref selection independently follows `--bucket-ref` → `SCOOP_BUCKET_REF` → `main`.
+Inspect stale ref overrides too, and reconcile the effective ref with the agreed
+publication ref even when that is `main`. Do not leave permanent shim URLs on a
+temporary setup branch that may be deleted.
 
 The scaffolder hashes local `scripts/noop.ps1` bytes normalized CRLF→LF; it does
 not fetch the generated raw URL. Ensure the intended file is published at the

@@ -77,6 +77,8 @@ Actions/secrets/policy configuration. Keep identity neutral and use
 ### B. Correct origin, stale override, unpublished noop
 
 Honor CLI/environment/remote precedence rather than trusting origin alone.
+Check ref precedence separately (`--bucket-ref` → `SCOOP_BUCKET_REF` → `main`);
+matching bytes on a temporary branch do not make it a durable publication ref.
 Scaffolding success does not verify remote content. A raw 404 and uncommitted noop
 changes block installability until the intended identity/ref publishes matching
 LF bytes and static autoupdate values agree. Do not reuse the template's raw URL,
