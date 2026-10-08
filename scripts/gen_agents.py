@@ -36,6 +36,8 @@ DROPPED = ("CLAUDE.md", "GEMINI.md", ".agents/settings.json")
 # Directories owned entirely by generation; any other file in them is stale.
 # Only skills/ under .claude/, since .claude/ also holds local user settings.
 OWNED_DIRS = (".claude/skills", ".agents")
+# Root files only generation writes; one the config stops producing is stale.
+OWNED_FILES = ("AGENTS.md",)
 
 
 def run_ai_rulez(root: Path) -> None:
@@ -74,8 +76,8 @@ def expected_files(root: Path) -> set[str]:
 
 
 def owned_files(root: Path) -> set[str]:
-    """Return every file currently present under the generation-owned directories."""
-    found = set()
+    """Return every generation-owned file currently present under ``root``."""
+    found = {rel for rel in OWNED_FILES if (root / rel).is_file()}
     for owned in OWNED_DIRS:
         base = root / owned
         if base.is_dir():

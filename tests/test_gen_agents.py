@@ -76,6 +76,10 @@ class CompareTest(unittest.TestCase):
             ["not generated: .agents/skills/old/SKILL.md"],
         )
 
+    def test_reports_root_file_no_longer_generated(self) -> None:
+        render(self.rendered, OUTPUTS[1:])
+        self.assertEqual(gen.compare(self.rendered, self.repo), ["not generated: AGENTS.md"])
+
     def test_reports_unwanted_root_files(self) -> None:
         write(self.repo, "CLAUDE.md")
         write(self.repo, ".agents/settings.json", "{}\n")
