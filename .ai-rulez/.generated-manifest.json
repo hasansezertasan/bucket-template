@@ -2,9 +2,13 @@
   "version": "1",
   "files": [
     ".agents/skills/scoop-add/SKILL.md",
+    ".agents/skills/scoop-fix-manifest/SKILL.md",
+    ".agents/skills/scoop-fix-manifest/references/repair-cases.md",
     ".agents/skills/scoop-verify/SKILL.md",
     ".agents/skills/scoop-verify/references/verification-cases.md",
     ".claude/skills/scoop-add/SKILL.md",
+    ".claude/skills/scoop-fix-manifest/SKILL.md",
+    ".claude/skills/scoop-fix-manifest/references/repair-cases.md",
     ".claude/skills/scoop-verify/SKILL.md",
     ".claude/skills/scoop-verify/references/verification-cases.md",
     "AGENTS.md"

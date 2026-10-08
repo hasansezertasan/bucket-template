@@ -14,6 +14,8 @@ your agent does not discover skills there, read the file directly when a task
 matches it:
 
 - `scoop-add`: adding a PyPI shim or prebuilt Windows binary manifest.
+- `scoop-fix-manifest`: repairing version discovery, download/hash drift,
+  archive paths, command exposure, or all-zero placeholder hashes.
 - `scoop-verify`: verifying bucket changes before a PR, including local checks,
   noop consistency, smoke commands, and Windows install evidence.
 
