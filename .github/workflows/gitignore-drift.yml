@@ -1,5 +1,12 @@
 ---
 name: Boilerplate Drift
+# Re-renders Cobo-managed files (.gitignore) when their upstream templates move
+# and opens a PR, instead of only failing the boilerplate check until someone
+# runs `cobo sync` by hand.
+#
+# Requires "Allow GitHub Actions to create and approve pull requests"
+# (Settings > Actions > General). A PR opened with GITHUB_TOKEN does not trigger
+# the PR's own checks; close and reopen it to run them.
 on:
   workflow_dispatch:
   schedule:
@@ -7,19 +14,21 @@ on:
     - cron: "0 7 * * 1"
 permissions: {}
 jobs:
-  drift:
-    name: Check boilerplate drift
+  sync:
+    name: Open PR for boilerplate drift
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # The only job that writes: it pushes the update branch and opens the PR.
     permissions:
-      contents: read
+      contents: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
-      - name: Set up uv
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d  # v10.0.1
-      - name: Refresh Cobo sources
-        run: uvx cobo@0.5.0 update
-      - name: Check for drift
-        run: uvx cobo@0.5.0 check --strict
+      - name: Sync Cobo fragments and open a PR
+        uses: hasansezertasan/cobo@6a01f16ac57314c02ed9dc1b2c5530485e0ef8af  # v0.5.1
+        with:
+          pr-title: "chore: sync Cobo-managed boilerplate"
+          # The action's default, cobo/update-fragments, fails check-branch-name.yml.
+          branch: chore/sync-cobo-boilerplate
