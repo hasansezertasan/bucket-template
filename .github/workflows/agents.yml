@@ -49,5 +49,7 @@ jobs:
         with:
           install_args: python github:Goldziher/ai-rulez
           cache: false
+      # The script rather than `mise run agents:check`: `mise run` installs every
+      # tool in the config first, and this job needs only the two above.
       - name: Check generated agent files are up to date
-        run: mise run agents:check
+        run: python scripts/gen_agents.py --check
