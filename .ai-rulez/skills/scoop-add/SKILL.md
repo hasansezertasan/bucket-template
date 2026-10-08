@@ -28,10 +28,9 @@ After scaffolding:
 
 1. Review the description, SPDX license, URL pattern, executable, and archive
    layout.
-2. Add a package-specific command to the `$smoke` map in
-   `.github/workflows/tests.yml` if `<command> version` is not valid.
-3. Run `mise run generate-readme`.
-4. Run `mise install` and `mise run check`.
-5. Prefer a real Windows `scoop install` and smoke test before reporting success.
+2. Invoke `scoop-verify` for the pre-PR gate: noop URL/hash consistency,
+   placeholder handling, smoke commands, README generation, local checks, and
+   Windows install evidence. If skills are not auto-discovered, read
+   `.agents/skills/scoop-verify/SKILL.md` and follow it.
 
 Keep one package family per pull request and include verification in the PR body.

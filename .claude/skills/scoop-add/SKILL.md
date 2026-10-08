@@ -2,8 +2,8 @@
 description: Use when adding a PyPI shim or prebuilt Windows binary manifest to this Scoop bucket.
 name: scoop-add
 user_invocable: false
-# Content-Hash: blake3:0ff57820c00e4dbffe116ede3ecc87d1e8b7ef6fec0bd8f841af59882a5f5c13
-# Source-Hash: blake3:b89c99fd7eca40989f33f864b3041fa4286f36551a1907fe32556ae799c6c204
+# Content-Hash: blake3:2f994b835c534b0151c96143aef7178787edbbc4dca85a87b4794dd92d0f0bcc
+# Source-Hash: blake3:f4d95cc4cf25cebc86383db466134f5c17c89e06ac3113d0e97173d9f6df83dc
 ---
 
 # Add a Scoop Manifest
@@ -31,10 +31,9 @@ After scaffolding:
 
 1. Review the description, SPDX license, URL pattern, executable, and archive
    layout.
-2. Add a package-specific command to the `$smoke` map in
-   `.github/workflows/tests.yml` if `<command> version` is not valid.
-3. Run `mise run generate-readme`.
-4. Run `mise install` and `mise run check`.
-5. Prefer a real Windows `scoop install` and smoke test before reporting success.
+2. Invoke `scoop-verify` for the pre-PR gate: noop URL/hash consistency,
+   placeholder handling, smoke commands, README generation, local checks, and
+   Windows install evidence. If skills are not auto-discovered, read
+   `.agents/skills/scoop-verify/SKILL.md` and follow it.
 
 Keep one package family per pull request and include verification in the PR body.
