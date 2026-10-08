@@ -2,6 +2,9 @@
 "pipx:cobo" = "0.5.0"
 action-validator = "0.9.0"
 actionlint = "1.7.12"
+# The release binary directly; the npm package is a wrapper that downloads this
+# same binary into ~/.cache at first run, outside mise's install tracking.
+"github:Goldziher/ai-rulez" = "4.11.3"
 # Provides `python` for the scaffolder task below. `python3` isn't reliable on
 # Windows (the stock CPython installer ships `python.exe`, and `python3` often
 # resolves to the Microsoft Store alias stub), and this bucket targets Windows.
@@ -13,6 +16,14 @@ zizmor = "1.30.1"
 [tasks."add-manifest"]
 description = "Scaffold a manifest: `add-manifest binary <repo>` or `add-manifest shim <package>`"
 run = "python scripts/add_manifest.py"
+
+[tasks."agents:generate"]
+description = "Regenerate agent instructions and skills from .ai-rulez/"
+run = "python scripts/gen_agents.py"
+
+[tasks."agents:check"]
+description = "Verify generated agent files match .ai-rulez/ (read-only)"
+run = "python scripts/gen_agents.py --check"
 
 [tasks."check-boilerplate"]
 description = "Verify Cobo-managed files match cobo.lock"
@@ -37,6 +48,7 @@ run = [
   { task = "check-readme" },
   { task = "style:check" },
   { task = "check-boilerplate" },
+  { task = "agents:check" },
 ]
 
 [tasks."style"]

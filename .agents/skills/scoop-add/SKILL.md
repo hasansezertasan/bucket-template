@@ -1,7 +1,6 @@
 ---
-description: Use when adding a PyPI shim or prebuilt Windows binary manifest to this Scoop bucket.
 name: scoop-add
-user_invocable: false
+description: "Use when adding a PyPI shim or prebuilt Windows binary manifest to this Scoop bucket."
 # Content-Hash: blake3:0ff57820c00e4dbffe116ede3ecc87d1e8b7ef6fec0bd8f841af59882a5f5c13
 # Source-Hash: blake3:b89c99fd7eca40989f33f864b3041fa4286f36551a1907fe32556ae799c6c204
 ---

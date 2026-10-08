@@ -1,0 +1,8 @@
+{
+  "version": "1",
+  "files": [
+    ".agents/skills/scoop-add/SKILL.md",
+    ".claude/skills/scoop-add/SKILL.md",
+    "AGENTS.md"
+  ]
+}
