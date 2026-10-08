@@ -6,5 +6,9 @@
     "MD013": false,
   },
   "globs": ["**/*.md", "**/*.markdown"],
+  // ai-rulez context fragments are spliced under a "###" heading in the
+  // generated AGENTS.md, so they cannot satisfy heading rules on their own;
+  // the generated file is linted instead.
+  "ignores": [".ai-rulez/context/**"],
   "gitignore": true,
 }
