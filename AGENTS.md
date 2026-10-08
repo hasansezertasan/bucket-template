@@ -26,6 +26,8 @@ matches it:
   archive paths, command exposure, or all-zero placeholder hashes.
 - `scoop-update-triage`: diagnosing scheduled or dispatch update failures,
   upstream renames, rate limits, hash mismatches, and invalid payloads.
+- `scoop-remove-or-deprecate`: retiring exact manifests and confirmed shim
+  siblings, handling dependents and migration guidance, and verifying removal.
 - `scoop-verify`: verifying bucket changes before a PR, including local checks,
   noop consistency, smoke commands, and Windows install evidence.
 
