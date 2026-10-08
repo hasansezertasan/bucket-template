@@ -6,7 +6,9 @@ name: Boilerplate Drift
 #
 # Requires "Allow GitHub Actions to create and approve pull requests"
 # (Settings > Actions > General). The PR is opened with GITHUB_TOKEN, so its
-# checks wait until someone with write access approves the workflow runs.
+# pull_request checks wait for approval and the pull_request_target gates
+# (check-branch-name.yml, check-pr-title.yml) do not run at all; close and
+# reopen the PR to run every check.
 on:
   workflow_dispatch:
   schedule:
@@ -32,3 +34,6 @@ jobs:
           pr-title: "chore: sync Cobo-managed boilerplate"
           # The action's default, cobo/update-fragments, fails check-branch-name.yml.
           branch: chore/sync-cobo-boilerplate
+          # Fail the run when a fragment cannot be re-rendered. Otherwise an
+          # unreachable or moved template leaves no diff, no PR, and a green run.
+          fail-on-sync-error: "true"
