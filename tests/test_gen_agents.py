@@ -78,7 +78,10 @@ class CompareTest(unittest.TestCase):
 
     def test_reports_root_file_no_longer_generated(self) -> None:
         render(self.rendered, OUTPUTS[1:])
-        self.assertEqual(gen.compare(self.rendered, self.repo), ["not generated: AGENTS.md"])
+        self.assertEqual(
+            gen.compare(self.rendered, self.repo),
+            [f"stale: {gen.MANIFEST}", "not generated: AGENTS.md"],
+        )
 
     def test_reports_unwanted_root_files(self) -> None:
         write(self.repo, "CLAUDE.md")
