@@ -3,7 +3,7 @@ description: Use when adding a PyPI shim or prebuilt Windows binary manifest to 
 name: scoop-add
 user_invocable: false
 # Content-Hash: blake3:2f994b835c534b0151c96143aef7178787edbbc4dca85a87b4794dd92d0f0bcc
-# Source-Hash: blake3:270ca4233e5f79f26574b6f650b762f9c8beb45a6d06a0c069cdfbefc8a05e93
+# Source-Hash: blake3:0e939efc60d70d578854a9b2266107aff73444cfd9cb7ee93b3bc6c73bf551e4
 ---
 
 # Add a Scoop Manifest
