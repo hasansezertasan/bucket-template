@@ -1,0 +1,5 @@
+---
+interface:
+  display_name: "Scoop Bucket from Template"
+  short_description: "Set up an owner-neutral bucket and its first manifest"
+  default_prompt: "Use $scoop-bucket-from-template to set up a bucket and verify its first manifest."

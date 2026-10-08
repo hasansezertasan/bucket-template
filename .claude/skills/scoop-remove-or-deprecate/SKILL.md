@@ -3,7 +3,7 @@ description: Remove or deprecate a Scoop manifest when retiring an upstream tool
 name: scoop-remove-or-deprecate
 user_invocable: false
 # Content-Hash: blake3:bc1176ab6d84ba30e0e9d8e1022e818a1ae096ae0ad0bed62c5022a85619f832
-# Source-Hash: blake3:0e939efc60d70d578854a9b2266107aff73444cfd9cb7ee93b3bc6c73bf551e4
+# Source-Hash: blake3:b42a1b811f52a753834a1ff3df790dd0277e1ab4a6e2022e73f39dc278972964
 ---
 
 # Remove or deprecate a manifest
