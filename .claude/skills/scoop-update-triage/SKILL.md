@@ -2,8 +2,8 @@
 description: Triage scheduled or release-dispatch Scoop updates that fail, skip a release, or produce suspect hashes. Use for update-manifests.yml and update-manifest-dispatch.yml incidents, including upstream repository/asset renames, rate limits, hash mismatches, and invalid dispatch payloads; use the repository updater within its supported boundaries, delegate manifest repairs, and finish with scoop-verify.
 name: scoop-update-triage
 user_invocable: false
-# Content-Hash: blake3:9ffa792ee139be6a0400641f3780c4fa9869794ec8f712a0542ec8c1ccd63897
-# Source-Hash: blake3:4d564dd9781c73b98eef3e0b75c1195d21ea78ebe306de5c19792bf7d9854340
+# Content-Hash: blake3:47a4412ecf7fa154f87a91c94c2d3fdfb675d26aaad9e39c974c258bf01d4366
+# Source-Hash: blake3:c222bc350b1e2b18d3c7891846a7c327568005d5c5d9c732401856ed04bbc634
 ---
 
 # Triage an automated update
@@ -55,6 +55,7 @@ and pushes need the user's explicit approval because workflows can publish.
 For a confirmed, validated existing package token, the local operation is:
 
 ```sh
+: "${PACKAGE:?Set PACKAGE to a confirmed, validated package token}"
 python scripts/update_manifests.py "$PACKAGE"
 ```
 

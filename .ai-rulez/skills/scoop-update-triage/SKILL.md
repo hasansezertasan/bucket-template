@@ -52,6 +52,7 @@ and pushes need the user's explicit approval because workflows can publish.
 For a confirmed, validated existing package token, the local operation is:
 
 ```sh
+: "${PACKAGE:?Set PACKAGE to a confirmed, validated package token}"
 python scripts/update_manifests.py "$PACKAGE"
 ```
 
