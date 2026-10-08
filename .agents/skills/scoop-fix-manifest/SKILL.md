@@ -2,7 +2,7 @@
 name: scoop-fix-manifest
 description: "Diagnose and repair existing Scoop manifests when checkver stops matching upstream, autoupdate URL or hash drifts from the real download, extract_dir or bin changes, or hashes are all-zero placeholders. Keep concrete downloads and future update templates aligned, then invoke scoop-verify."
 # Content-Hash: blake3:697425c0efc090913e2d90b3ba2f036d58841f2c8730b39c6612c352a097d55f
-# Source-Hash: blake3:0e939efc60d70d578854a9b2266107aff73444cfd9cb7ee93b3bc6c73bf551e4
+# Source-Hash: blake3:9c88dc17b8131f1e678d71fad5c870d461ef72f5cabcc61c164922daeaff86a7
 ---
 
 # Repair a Scoop Manifest
