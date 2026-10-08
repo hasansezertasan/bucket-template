@@ -5,8 +5,8 @@ name: Boilerplate Drift
 # runs `cobo sync` by hand.
 #
 # Requires "Allow GitHub Actions to create and approve pull requests"
-# (Settings > Actions > General). A PR opened with GITHUB_TOKEN does not trigger
-# the PR's own checks; close and reopen it to run them.
+# (Settings > Actions > General). The PR is opened with GITHUB_TOKEN, so its
+# checks wait until someone with write access approves the workflow runs.
 on:
   workflow_dispatch:
   schedule:
