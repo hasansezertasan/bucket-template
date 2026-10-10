@@ -4,7 +4,7 @@ action-validator = "0.9.0"
 actionlint = "1.7.12"
 # The release binary directly; the npm package is a wrapper that downloads this
 # same binary into ~/.cache at first run, outside mise's install tracking.
-"github:Goldziher/ai-rulez" = "4.11.3"
+"github:Goldziher/ai-rulez" = "4.24.2"
 # Provides `python` for the scaffolder task below. `python3` isn't reliable on
 # Windows (the stock CPython installer ships `python.exe`, and `python3` often
 # resolves to the Microsoft Store alias stub), and this bucket targets Windows.
