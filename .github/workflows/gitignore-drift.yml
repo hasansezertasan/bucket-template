@@ -29,7 +29,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Sync Cobo fragments and open a PR
-        uses: hasansezertasan/cobo@6a01f16ac57314c02ed9dc1b2c5530485e0ef8af  # v0.5.1
+        uses: hasansezertasan/cobo@1acfd57dbd67a6de4508a0924504cb5d5d5c15e0  # v0.6.0
         with:
           pr-title: "chore: sync Cobo-managed boilerplate"
           # The action's default, cobo/update-fragments, fails check-branch-name.yml.
