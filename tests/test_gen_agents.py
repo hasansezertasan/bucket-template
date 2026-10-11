@@ -53,6 +53,17 @@ class DropUnwantedTest(unittest.TestCase):
         with TemporaryDirectory() as tmp:
             gen.drop_unwanted(Path(tmp))
 
+    def test_removes_local_manifest(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            render(root, OUTPUTS)
+            write(root, f"{gen.CONFIG_DIR}/.generated-manifest.local.json", "{}\n")
+            gen.drop_unwanted(root)
+            self.assertFalse(
+                (root / f"{gen.CONFIG_DIR}/.generated-manifest.local.json").exists()
+            )
+            self.assertEqual(gen.expected_files(root), {*OUTPUTS, gen.MANIFEST})
+
 
 class CompareTest(unittest.TestCase):
     def setUp(self) -> None:
