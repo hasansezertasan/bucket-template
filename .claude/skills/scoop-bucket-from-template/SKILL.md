@@ -1,9 +1,8 @@
 ---
 description: Set up a new Scoop bucket from this template, including repository identity, Actions settings, update tokens, shim noop publication, and the first manifest. Use for template adoption or bootstrap questions about SCOOP_BUCKET_TOKEN versus WORKFLOW_TOKEN; delegate manifest creation and verification to scoop-add and scoop-verify.
 name: scoop-bucket-from-template
-user_invocable: false
 # Content-Hash: blake3:4063254069d6dd13f08fad66429f083a3bc44ba62a3acfdb53e7a8f3d66e1e92
-# Source-Hash: blake3:9c88dc17b8131f1e678d71fad5c870d461ef72f5cabcc61c164922daeaff86a7
+# Source-Hash: blake3:ce7d8a7d8447df64e15c6abcf939a57c009926f6b710dc3d3b4e1a51fde2cd6c
 ---
 
 # Set Up a Scoop Bucket from the Template

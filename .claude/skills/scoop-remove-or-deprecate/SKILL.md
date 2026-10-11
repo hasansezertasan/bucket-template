@@ -1,9 +1,8 @@
 ---
 description: Remove or deprecate a Scoop manifest when retiring an upstream tool, dropping an installation route, or replacing a package. Establish deletion versus native deprecated-directory behavior, identify exact manifests and any real -pipx sibling, preserve independent alternatives and dependents, regenerate the README catalog, and finish with scoop-verify.
 name: scoop-remove-or-deprecate
-user_invocable: false
 # Content-Hash: blake3:bc1176ab6d84ba30e0e9d8e1022e818a1ae096ae0ad0bed62c5022a85619f832
-# Source-Hash: blake3:9c88dc17b8131f1e678d71fad5c870d461ef72f5cabcc61c164922daeaff86a7
+# Source-Hash: blake3:ce7d8a7d8447df64e15c6abcf939a57c009926f6b710dc3d3b4e1a51fde2cd6c
 ---
 
 # Remove or deprecate a manifest

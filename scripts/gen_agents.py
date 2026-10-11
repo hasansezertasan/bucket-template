@@ -45,9 +45,13 @@ def run_ai_rulez(root: Path) -> None:
     binary = shutil.which("ai-rulez")
     if binary is None:
         sys.exit("ai-rulez not found on PATH; run `mise install` first.")
-    config = root / CONFIG_DIR / "config.yaml"
+    # v5 reads only config.toml (migrated from config.yaml); keep the yaml
+    # fallback so the script still works on a pre-migration checkout.
+    config = root / CONFIG_DIR / "config.toml"
+    if not config.is_file():
+        config = root / CONFIG_DIR / "config.yaml"
     subprocess.run(
-        [binary, "generate", "--quiet", "--no-configure-cli-mcp", "--config", str(config)],
+        [binary, "generate", "--quiet", "--no-self-mcp", "-C", str(config)],
         cwd=root,
         check=True,
     )
@@ -58,6 +62,11 @@ def drop_unwanted(root: Path) -> None:
     """Delete the unwanted outputs and remove them from the generation manifest."""
     for rel in DROPPED:
         (root / rel).unlink(missing_ok=True)
+    # v5 also writes machine-local digests here; they are never committed
+    # (.gitignore is Cobo-managed, so this cannot be ignored there), and the
+    # committed manifest plus per-file Content-Hash lines are enough to verify
+    # ownership without it.
+    (root / CONFIG_DIR / ".generated-manifest.local.json").unlink(missing_ok=True)
     manifest = root / MANIFEST
     if not manifest.is_file():
         return
