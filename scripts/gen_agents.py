@@ -130,8 +130,22 @@ def owned_files(root: Path) -> set[str]:
     return found
 
 
+def is_link(path: Path) -> bool:
+    """True for symlinks and Windows directory junctions (reparse points).
+
+    ``Path.is_symlink()`` misses junctions, but promotion must refuse both:
+    either one would redirect writes outside the checkout. ``os.path``
+    exposes junctions from Python 3.12 on; older interpreters fall back to
+    symlinks alone.
+    """
+    if path.is_symlink():
+        return True
+    isjunction = getattr(os.path, "isjunction", None)
+    return bool(isjunction is not None and isjunction(path))
+
+
 def check_no_symlink(repo: Path, rel: str) -> None:
-    """Refuse a promotion target that passes through a symlink.
+    """Refuse a promotion target that passes through a symlink or junction.
 
     ``copyfile``/``mkdir``/``unlink`` would otherwise follow the link and
     touch files outside the checkout, so a symlinked ``AGENTS.md`` or owned
@@ -140,7 +154,7 @@ def check_no_symlink(repo: Path, rel: str) -> None:
     current = repo
     for part in Path(rel).parts:
         current = current / part
-        if current.is_symlink():
+        if is_link(current):
             sys.exit(f"error: refusing to promote through symlink: {current}")
 
 
@@ -174,13 +188,25 @@ def dir_is_fully_stale(dest: Path, repo: Path, removed: set[str]) -> bool:
 
     Only then may promotion replace the directory with a generated file:
     anything else inside is hand-authored content that must be refused, not
-    vaporized.
+    vaporized. Every entry counts, not just regular files: a link is owned
+    only by its own recorded path (replacing it removes the link itself,
+    never the target), and a subdirectory must itself be fully stale.
     """
     try:
-        files = [p for p in dest.rglob("*") if p.is_file()]
+        entries = list(dest.iterdir())
     except OSError:
         return False
-    return all(p.relative_to(repo).as_posix() in removed for p in files)
+    for entry in entries:
+        rel = entry.relative_to(repo).as_posix()
+        if entry.is_symlink():
+            if rel not in removed:
+                return False
+        elif entry.is_dir():
+            if not dir_is_fully_stale(entry, repo, removed):
+                return False
+        elif rel not in removed:
+            return False
+    return True
 
 
 def sync(rendered: Path, repo: Path) -> list[str]:
@@ -210,7 +236,7 @@ def sync(rendered: Path, repo: Path) -> list[str]:
         check_no_symlink(repo, rel)
     for rel in sorted(expected - {MANIFEST}):
         dest = repo / rel
-        if dest.is_file() and not dest.is_symlink():
+        if dest.is_file() and not is_link(dest):
             if rel not in previous and not filecmp.cmp(
                 rendered / rel, dest, shallow=False
             ):
@@ -220,7 +246,7 @@ def sync(rendered: Path, repo: Path) -> list[str]:
                     "rendered output. Move it aside and re-run, or delete it "
                     "to adopt the generated file."
                 )
-        elif dest.is_dir() and not dest.is_symlink():
+        elif dest.is_dir() and not is_link(dest):
             if dir_is_fully_stale(dest, repo, removed_set):
                 replace_dirs.append(rel)
             else:

@@ -274,6 +274,35 @@ class SyncTest(unittest.TestCase):
         )
         self.assertTrue((self.repo / inner).is_file())
 
+    def test_directory_with_hand_symlink_becomes_nothing(self) -> None:
+        # Non-file entries count as content: a hand-authored link next to
+        # stale files still refuses the replacement.
+        inner = ".agents/skills/old/inner.md"
+        render(self.repo, [*OUTPUTS, inner])
+        (self.repo / ".agents/skills/old/link").symlink_to(inner)
+        render(self.rendered, [*OUTPUTS, ".agents/skills/old"])
+        with self.assertRaises(SystemExit):
+            gen.sync(self.rendered, self.repo)
+        self.assertTrue((self.repo / ".agents/skills/old/link").is_symlink())
+
+    def test_directory_with_broken_symlink_becomes_nothing(self) -> None:
+        inner = ".agents/skills/old/inner.md"
+        render(self.repo, [*OUTPUTS, inner])
+        (self.repo / ".agents/skills/old/dangling").symlink_to("nowhere")
+        render(self.rendered, [*OUTPUTS, ".agents/skills/old"])
+        with self.assertRaises(SystemExit):
+            gen.sync(self.rendered, self.repo)
+        self.assertTrue((self.repo / ".agents/skills/old/dangling").is_symlink())
+
+    def test_nested_stale_tree_is_replaced(self) -> None:
+        inner = ".agents/skills/old/sub/inner.md"
+        render(self.repo, [*OUTPUTS, inner])
+        render(self.rendered, [*OUTPUTS, ".agents/skills/old"])
+        removed = gen.sync(self.rendered, self.repo)
+        self.assertEqual(removed, [inner])
+        self.assertTrue((self.repo / ".agents/skills/old").is_file())
+        self.assertEqual(gen.compare(self.rendered, self.repo), [])
+
     def test_parent_blocked_by_hand_file(self) -> None:
         render(self.rendered, [*OUTPUTS, ".agents/skills/new/deep.md"])
         write(self.repo, ".agents/skills/new", "hand file\n")
@@ -332,6 +361,25 @@ class SyncTest(unittest.TestCase):
         (self.repo / ".agents").symlink_to(elsewhere)
         with self.assertRaises(SystemExit):
             gen.sync(self.rendered, self.repo)
+        self.assertEqual(list(elsewhere.iterdir()), [])
+
+    def test_refuses_junction_owned_parent(self) -> None:
+        # Windows junctions are not symlinks; the guard must catch both.
+        elsewhere = Path(self._tmp.name) / "elsewhere"
+        elsewhere.mkdir()
+        real_isjunction = getattr(os.path, "isjunction", None)
+
+        def fake_isjunction(path) -> bool:
+            if real_isjunction is not None and real_isjunction(path):
+                return True
+            return Path(path) == self.repo / ".agents"
+
+        with unittest.mock.patch.object(
+            os.path, "isjunction", fake_isjunction, create=True
+        ):
+            with self.assertRaises(SystemExit):
+                gen.sync(self.rendered, self.repo)
+        self.assertTrue((self.repo / ".agents").is_dir())
         self.assertEqual(list(elsewhere.iterdir()), [])
 
     @unittest.skipUnless(os.name == "posix", "executable-bit semantics")
