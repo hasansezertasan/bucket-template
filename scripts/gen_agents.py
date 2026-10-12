@@ -123,12 +123,21 @@ def expected_files(root: Path) -> set[str]:
 
 
 def owned_files(root: Path) -> set[str]:
-    """Return every generation-owned file currently present under ``root``."""
+    """Return every generation-owned file currently present under ``root``.
+
+    Links count by themselves, never by their targets: a broken symlink at
+    a previously generated path is still a stale output to remove, and one
+    squatting elsewhere in an owned tree is still a leftover to report.
+    """
     found = {rel for rel in OWNED_FILES if (root / rel).is_file()}
     for owned in OWNED_DIRS:
         base = root / owned
         if base.is_dir():
-            found.update(p.relative_to(root).as_posix() for p in base.rglob("*") if p.is_file())
+            found.update(
+                p.relative_to(root).as_posix()
+                for p in base.rglob("*")
+                if p.is_file() or p.is_symlink()
+            )
     return found
 
 
@@ -147,14 +156,16 @@ def is_link(path: Path) -> bool:
 
 
 def check_no_symlink(repo: Path, rel: str) -> None:
-    """Refuse a promotion target that passes through a symlink or junction.
+    """Refuse a promotion target under a symlinked or junctioned directory.
 
-    ``copyfile``/``mkdir``/``unlink`` would otherwise follow the link and
-    touch files outside the checkout, so a symlinked ``AGENTS.md`` or owned
-    directory fails the run instead of corrupting an arbitrary user file.
+    ``mkdir`` and path traversal would otherwise follow the link and touch
+    files outside the checkout. Only ancestors are checked: the final
+    component itself is always replaced or unlinked, and the atomic rename
+    and unlink never follow it, so links at expected or stale paths heal
+    instead of bricking the run.
     """
     current = repo
-    for part in Path(rel).parts:
+    for part in Path(rel).parts[:-1]:
         current = current / part
         if is_link(current):
             sys.exit(f"error: refusing to promote through symlink: {current}")
@@ -321,7 +332,9 @@ def compare(rendered: Path, repo: Path) -> list[str]:
     # silently passing with obsolete instructions active; one promote run
     # retires the report by refreshing the manifest.
     for rel in sorted(previous - expected - set(DROPPED) - owned):
-        if (repo / rel).is_file():
+        # lexists, not is_file: a broken link is still an obsolete entry,
+        # and unlinking it removes the link itself, never the target.
+        if os.path.lexists(repo / rel):
             problems.append(f"orphaned: {rel}")
     # A dropped file reappearing (say, a hand-written CLAUDE.md) would shadow or
     # contradict AGENTS.md for the agent that reads it.

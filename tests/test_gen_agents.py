@@ -393,14 +393,53 @@ class SyncTest(unittest.TestCase):
         self.assertEqual(gen.sync(self.rendered, self.repo), [])
         self.assertEqual(gen.compare(self.rendered, self.repo), [])
 
-    def test_refuses_symlinked_destination(self) -> None:
+    def test_replaces_symlinked_destination(self) -> None:
+        # The atomic rename swaps the link itself, so a symlinked
+        # destination heals without touching the link target.
         outside = Path(self._tmp.name) / "outside.txt"
         outside.write_text("precious\n", encoding="utf-8")
         (self.repo / OUTPUTS[0]).unlink()
         (self.repo / OUTPUTS[0]).symlink_to(outside)
-        with self.assertRaises(SystemExit):
-            gen.sync(self.rendered, self.repo)
+        write(self.rendered, OUTPUTS[0], "new\n")
+        removed = gen.sync(self.rendered, self.repo)
+        self.assertEqual(removed, [])
         self.assertEqual(outside.read_text(encoding="utf-8"), "precious\n")
+        dest = self.repo / OUTPUTS[0]
+        self.assertFalse(dest.is_symlink())
+        self.assertEqual(dest.read_text(encoding="utf-8"), "new\n")
+        self.assertEqual(gen.compare(self.rendered, self.repo), [])
+
+    def test_heals_broken_symlink_at_expected_path(self) -> None:
+        dest = self.repo / OUTPUTS[1]
+        dest.unlink()
+        dest.symlink_to("nowhere")
+        removed = gen.sync(self.rendered, self.repo)
+        self.assertEqual(removed, [])
+        self.assertTrue(dest.is_file() and not dest.is_symlink())
+        self.assertEqual(gen.compare(self.rendered, self.repo), [])
+
+    def test_removes_stale_broken_symlink(self) -> None:
+        # A broken link at a previously generated path is still a stale
+        # output: removing it deletes the link, never its target.
+        stale = ".agents/skills/old/SKILL.md"
+        render(self.repo, [*OUTPUTS, stale])
+        (self.repo / stale).unlink()
+        (self.repo / stale).symlink_to("nowhere")
+        removed = gen.sync(self.rendered, self.repo)
+        self.assertEqual(removed, [stale])
+        self.assertFalse(os.path.lexists(self.repo / stale))
+        self.assertEqual(gen.compare(self.rendered, self.repo), [])
+
+    def test_reports_orphaned_broken_symlink(self) -> None:
+        render(self.repo, [*OUTPUTS, "ORPHAN.md"])
+        (self.repo / "ORPHAN.md").unlink()
+        (self.repo / "ORPHAN.md").symlink_to("nowhere")
+        self.assertEqual(
+            gen.compare(self.rendered, self.repo),
+            [f"stale: {gen.MANIFEST}", "orphaned: ORPHAN.md"],
+        )
+        gen.sync(self.rendered, self.repo)
+        self.assertTrue((self.repo / "ORPHAN.md").is_symlink())
 
     def test_refuses_symlinked_owned_parent(self) -> None:
         elsewhere = Path(self._tmp.name) / "elsewhere"
