@@ -353,15 +353,15 @@ class SyncTest(unittest.TestCase):
         stale = ".agents/skills/old/SKILL.md"
         render(self.repo, [*OUTPUTS, stale])
         old_manifest = (self.repo / gen.MANIFEST).read_text(encoding="utf-8")
-        real_copyfile = gen.shutil.copyfile
+        real_replace = gen.os.replace
 
-        def failing_copy(src: Path, dest: Path) -> Path:
+        def failing_replace(src: Path, dest: Path) -> None:
             if ".claude" in str(dest):
                 raise OSError("disk full")
-            return real_copyfile(src, dest)
+            real_replace(src, dest)
 
         with unittest.mock.patch.object(
-            gen.shutil, "copyfile", side_effect=failing_copy
+            gen.os, "replace", side_effect=failing_replace
         ):
             with self.assertRaises(OSError):
                 gen.sync(self.rendered, self.repo)
@@ -424,6 +424,32 @@ class SyncTest(unittest.TestCase):
         gen.sync(self.rendered, self.repo)
         self.assertTrue(os.stat(self.repo / gen.MANIFEST).st_mode & 0o100)
         self.assertEqual(gen.compare(self.rendered, self.repo), [])
+
+    @unittest.skipUnless(os.name == "posix", "hard-link semantics")
+    def test_promote_breaks_hard_link(self) -> None:
+        # A previously generated destination hard-linked elsewhere must gain
+        # its own inode instead of corrupting the shared one.
+        outside = Path(self._tmp.name) / "outside.txt"
+        outside.write_text("precious\n", encoding="utf-8")
+        dest = self.repo / OUTPUTS[0]
+        dest.unlink()
+        os.link(outside, dest)
+        write(self.rendered, OUTPUTS[0], "new\n")
+        gen.sync(self.rendered, self.repo)
+        self.assertEqual(outside.read_text(encoding="utf-8"), "precious\n")
+        self.assertEqual(dest.read_text(encoding="utf-8"), "new\n")
+        self.assertEqual(os.stat(dest).st_nlink, 1)
+
+    def test_promote_cleans_up_temp_file_on_failure(self) -> None:
+        with unittest.mock.patch.object(
+            gen.os, "replace", side_effect=OSError("no rename")
+        ):
+            with self.assertRaises(OSError):
+                gen.sync(self.rendered, self.repo)
+        leftovers = [
+            p for p in self.repo.rglob(".gen-agents-*.tmp") if p.is_file()
+        ]
+        self.assertEqual(leftovers, [])
 
     @unittest.skipUnless(os.name == "posix", "executable-bit semantics")
     def test_reports_mode_drift(self) -> None:

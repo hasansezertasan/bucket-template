@@ -15,7 +15,9 @@ wrapper owns packaging and drift checks.
 - Promote (the default mode) copies the rendered files over and removes owned
   files the previous render produced but the fresh one no longer lists, so
   deleting a canonical skill removes its generated copies. Promotion refuses
-  to write through symlinks and mirrors the owner-execute bit Git tracks.
+  to write through symlinks and installs every file with an atomic rename
+  that preserves modes, so hard links and crashes cannot corrupt shared or
+  partial outputs.
   Dropped side files are neither promoted nor deleted by promote: a
   hand-written ``CLAUDE.md`` would shadow ``AGENTS.md`` for the agent that
   reads it, so ``--check`` reports it instead of vaporizing it. A previously
@@ -158,24 +160,33 @@ def check_no_symlink(repo: Path, rel: str) -> None:
             sys.exit(f"error: refusing to promote through symlink: {current}")
 
 
-def sync_exec_bit(src: Path, dest: Path) -> None:
-    """Mirror the owner-execute bit from staging to the checkout (POSIX only).
+def atomic_copyfile(src: Path, dest: Path) -> None:
+    """Copy ``src`` over ``dest`` atomically, preserving the file mode.
 
-    ``copyfile`` copies contents but not modes, so a generated helper script
-    would lose ``+x`` on promote while content comparison still passes. Only
-    the owner-execute bit is mirrored: it is the one Git tracks, and full
-    modes are umask- and platform-dependent.
+    The content goes to a fresh temporary file in the destination directory
+    that is renamed over the target, so a hard-linked destination gains its
+    own inode instead of corrupting the shared one, a symlinked destination
+    is replaced rather than followed, and a crash never leaves a truncated
+    file behind.
     """
-    if os.name != "posix":
-        return
-    wanted = stat.S_IMODE(os.stat(src).st_mode) & 0o100
-    current = stat.S_IMODE(os.stat(dest).st_mode)
-    if bool(current & 0o100) != bool(wanted):
-        os.chmod(dest, (current | 0o100) if wanted else (current & ~0o100))
+    fd, tmp = tempfile.mkstemp(
+        dir=str(dest.parent), prefix=".gen-agents-", suffix=".tmp"
+    )
+    try:
+        with os.fdopen(fd, "wb") as out, open(src, "rb") as src_file:
+            shutil.copyfileobj(src_file, out, 1 << 20)
+        shutil.copymode(src, tmp)
+        os.replace(tmp, dest)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
 
 
 def exec_bit_differs(src: Path, dest: Path) -> bool:
-    """True when the owner-execute bits differ (POSIX only; see ``sync_exec_bit``)."""
+    """True when the owner-execute bits differ (POSIX only; promote mirrors modes)."""
     if os.name != "posix":
         return False
     src_exec = bool(stat.S_IMODE(os.stat(src).st_mode) & 0o100)
@@ -270,12 +281,10 @@ def sync(rendered: Path, repo: Path) -> list[str]:
     for rel in sorted(expected - {MANIFEST}):
         dest = repo / rel
         dest.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(rendered / rel, dest)
-        sync_exec_bit(rendered / rel, dest)
+        atomic_copyfile(rendered / rel, dest)
     dest = repo / MANIFEST
     dest.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(rendered / MANIFEST, dest)
-    sync_exec_bit(rendered / MANIFEST, dest)
+    atomic_copyfile(rendered / MANIFEST, dest)
     return removed
 
 
