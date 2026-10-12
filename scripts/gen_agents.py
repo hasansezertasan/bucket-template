@@ -233,6 +233,21 @@ def link_ancestor(repo: Path, rel: str) -> str | None:
     return None
 
 
+def remove_stale(path: Path) -> None:
+    """Remove a stale output without following links.
+
+    Plain unlink handles files and file links, but detaching a directory
+    link (a Windows junction) needs directory removal instead; either way
+    only the link itself goes, never its target. Absent paths are fine.
+    """
+    try:
+        os.unlink(path)
+    except FileNotFoundError:
+        pass
+    except (PermissionError, IsADirectoryError):
+        os.rmdir(path)
+
+
 def dir_is_fully_stale(dest: Path, repo: Path, removed: set[str]) -> bool:
     """True when everything under ``dest`` is stale-manifest-owned or nothing.
 
@@ -352,7 +367,7 @@ def sync(rendered: Path, repo: Path) -> list[str]:
     for rel in replace_dirs:
         shutil.rmtree(repo / rel)
     for rel in removed:
-        (repo / rel).unlink(missing_ok=True)
+        remove_stale(repo / rel)
     for rel in sorted(expected - {MANIFEST}):
         dest = repo / rel
         dest.parent.mkdir(parents=True, exist_ok=True)
@@ -400,8 +415,10 @@ def compare(rendered: Path, repo: Path) -> list[str]:
         if os.path.lexists(repo / rel):
             problems.append(f"orphaned: {rel}")
     # A dropped file reappearing (say, a hand-written CLAUDE.md) would shadow or
-    # contradict AGENTS.md for the agent that reads it.
-    problems.extend(f"unwanted: {rel}" for rel in DROPPED if (repo / rel).is_file())
+    # contradict AGENTS.md for the agent that reads it. lexists, not
+    # is_file: a dangling link is still a committed entry that activates
+    # the moment its target appears.
+    problems.extend(f"unwanted: {rel}" for rel in DROPPED if os.path.lexists(repo / rel))
     return problems
 
 

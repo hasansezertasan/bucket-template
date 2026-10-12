@@ -148,6 +148,26 @@ class CompareTest(unittest.TestCase):
             ["unwanted: CLAUDE.md", "unwanted: GEMINI.md"],
         )
 
+    @needs_symlinks
+    def test_reports_dangling_dropped_link(self) -> None:
+        (self.repo / "CLAUDE.md").symlink_to("nowhere")
+        self.assertEqual(gen.compare(self.rendered, self.repo), ["unwanted: CLAUDE.md"])
+
+    def test_remove_stale_falls_back_to_rmdir(self) -> None:
+        # Detaching a directory link needs directory removal; plain unlink
+        # refuses it on Windows.
+        with (
+            unittest.mock.patch.object(
+                gen.os, "unlink", side_effect=PermissionError(13, "denied")
+            ),
+            unittest.mock.patch.object(gen.os, "rmdir") as rmdir,
+        ):
+            gen.remove_stale(Path("/junction"))
+        rmdir.assert_called_once_with(Path("/junction"))
+
+    def test_remove_stale_tolerates_absence(self) -> None:
+        gen.remove_stale(Path(self._tmp.name) / "absent")
+
     def test_ignores_claude_files_outside_skills(self) -> None:
         write(self.repo, ".claude/settings.local.json", "{}\n")
         self.assertEqual(gen.compare(self.rendered, self.repo), [])
