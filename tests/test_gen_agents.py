@@ -38,6 +38,21 @@ needs_symlinks = unittest.skipUnless(
 )
 
 
+def _fs_case_insensitive(directory: Path) -> bool:
+    """True when ``directory`` lives on a case-insensitive filesystem."""
+    probe = directory / ".caseprobe.tmp"
+    try:
+        probe.write_text("x", encoding="utf-8")
+        return os.path.samefile(probe, directory / ".CASEPROBE.TMP")
+    except OSError:
+        return False
+    finally:
+        try:
+            probe.unlink()
+        except OSError:
+            pass
+
+
 def write(root: Path, rel: str, text: str = "x\n") -> None:
     path = root / rel
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -330,45 +345,46 @@ class SyncTest(unittest.TestCase):
         with self.assertRaises(SystemExit):
             gen.sync(self.rendered, self.repo)
 
-    def test_case_only_rename_with_new_content(self) -> None:
-        # Case-insensitive filesystems treat Guide.md -> guide.md as one
-        # file: the new spelling stays previously owned and promotes, and
-        # the old spelling is removed as stale.
-        old, new = ".agents/skills/Guide.md", ".agents/skills/guide.md"
-        render(self.repo, [*OUTPUTS, old])
-        render(self.rendered, [*OUTPUTS, new])
-        write(self.rendered, new, "new\n")
-        lowered = lambda s: s.lower()
-        with unittest.mock.patch.object(gen.os.path, "normcase", lowered):
-            removed = gen.sync(self.rendered, self.repo)
-        self.assertEqual(removed, [old])
-        self.assertEqual((self.repo / new).read_text(encoding="utf-8"), "new\n")
-        # Compare directory names, not exists(): the default macOS
-        # filesystem is itself case-insensitive, so both spellings resolve
-        # to the one promoted file there.
-        names = [p.name for p in (self.repo / ".agents/skills").iterdir()]
-        self.assertIn("guide.md", names)
-        self.assertNotIn("Guide.md", names)
-        self.assertEqual(gen.compare(self.rendered, self.repo), [])
-
     def test_case_only_rename_outside_owned_refreshes_manifest(self) -> None:
-        # Outside the owned sets the old spelling is not removal-eligible,
-        # but its folded form still counts as expected, so promotion is
-        # neither refused as a collision nor retired as an orphan: the
-        # manifest refreshes. (On POSIX both spellings persist side by side,
-        # an artifact of the simulation; on a real case-insensitive
-        # filesystem they are one file.)
+        # Outside the owned sets the old spelling is not removal-eligible.
+        # On a case-sensitive filesystem the spellings are two files and
+        # the distinct hand-authored one still refuses; on a
+        # case-insensitive filesystem they are one file, recognised by
+        # object identity, and the manifest refreshes.
         render(self.repo, [*OUTPUTS, "Guide.md"])
         render(self.rendered, [*OUTPUTS, "guide.md"])
         write(self.rendered, "guide.md", "new\n")
-        lowered = lambda s: s.lower()
-        with unittest.mock.patch.object(gen.os.path, "normcase", lowered):
+        if _fs_case_insensitive(Path(self._tmp.name)):
             self.assertEqual(gen.sync(self.rendered, self.repo), [])
-        self.assertEqual((self.repo / "guide.md").read_text(encoding="utf-8"), "new\n")
-        self.assertEqual(
-            (self.repo / gen.MANIFEST).read_text(encoding="utf-8"),
-            (self.rendered / gen.MANIFEST).read_text(encoding="utf-8"),
-        )
+            self.assertEqual(
+                (self.repo / "guide.md").read_text(encoding="utf-8"), "new\n"
+            )
+            self.assertEqual(
+                (self.repo / gen.MANIFEST).read_text(encoding="utf-8"),
+                (self.rendered / gen.MANIFEST).read_text(encoding="utf-8"),
+            )
+        else:
+            with self.assertRaises(SystemExit):
+                gen.sync(self.rendered, self.repo)
+
+    def test_case_only_directory_rename(self) -> None:
+        # Ancestor directories take the staged casing. A plain exist_ok
+        # mkdir would reuse the old-cased directory on insensitive
+        # filesystems (failing outright here, hiding the new spelling
+        # from case-sensitive checkouts there), so the variant is renamed.
+        # Fresh Widget names keep setUp's demo tree out of the way, so the
+        # old casing is really on disk wherever the platform allows it.
+        old_file = ".agents/skills/Widget/SKILL.md"
+        new = ".agents/skills/widget/SKILL.md"
+        render(self.repo, [*OUTPUTS, old_file])
+        render(self.rendered, [*OUTPUTS, new])
+        write(self.rendered, new, "new\n")
+        removed = gen.sync(self.rendered, self.repo)
+        self.assertEqual(removed, [old_file])
+        names = [p.name for p in (self.repo / ".agents/skills").iterdir()]
+        self.assertIn("widget", names)
+        self.assertEqual((self.repo / new).read_text(encoding="utf-8"), "new\n")
+        self.assertEqual(gen.compare(self.rendered, self.repo), [])
 
     @needs_symlinks
     def test_refuses_unowned_link_collision(self) -> None:

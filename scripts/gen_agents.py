@@ -248,6 +248,69 @@ def remove_stale(path: Path) -> None:
         os.rmdir(path)
 
 
+def same_known_file(repo: Path, rel: str, known: set[str]) -> bool:
+    """True when ``repo/rel`` is the same filesystem object as a known path.
+
+    Identity, not spelling: on a case-insensitive filesystem a case-only
+    rename resolves to the previously recorded file, while on POSIX two
+    spellings are two files. Missing sides never match.
+    """
+    dest = repo / rel
+    for other in known:
+        try:
+            if os.path.samefile(dest, repo / other):
+                return True
+        except OSError:
+            continue
+    return False
+
+
+def find_case_variant(parent: Path, name: str) -> Path | None:
+    """Return a real subdirectory of ``parent`` that ``name`` resolves to.
+
+    Only real directories qualify: links are refused in preflight, and a
+    file variant means a transition the stale cleanup (or refusal) already
+    handled. An exact-cased entry (or none resolving at all) yields None.
+    """
+    wanted = parent / name
+    try:
+        entries = list(parent.iterdir())
+    except OSError:
+        return None
+    if any(entry.name == name for entry in entries):
+        return None
+    for entry in entries:
+        if entry.is_dir() and not is_link(entry):
+            try:
+                if os.path.samefile(entry, wanted):
+                    return entry
+            except OSError:
+                continue
+    return None
+
+
+def ensure_cased_dir(repo: Path, rel: str) -> None:
+    """Create the parent chain of ``rel`` under ``repo`` with staged casing.
+
+    On case-insensitive filesystems a plain existence check resolves either
+    spelling, so ``mkdir(exist_ok=True)`` would reuse a stale-cased
+    directory that breaks case-sensitive checkouts (the manifest names the
+    new spelling, local comparison resolves either way, Linux CI reports it
+    missing). Rename the resolving variant to the staged spelling instead.
+    Stale files blocking the way are already unlinked, and linked ancestors
+    were refused in preflight.
+    """
+    current = repo
+    for part in Path(rel).parts[:-1]:
+        wanted = current / part
+        variant = find_case_variant(current, part)
+        if variant is not None:
+            os.rename(variant, wanted)
+        elif not wanted.is_dir() or is_link(wanted):
+            wanted.mkdir(parents=True, exist_ok=True)
+        current = wanted
+
+
 def dir_is_fully_stale(dest: Path, repo: Path, removed: set[str]) -> bool:
     """True when everything under ``dest`` is stale-manifest-owned or nothing.
 
@@ -299,26 +362,18 @@ def sync(rendered: Path, repo: Path) -> list[str]:
     # sets are generation-owned by definition, so a lost manifest still
     # recovers instead of refusing every output as hand-authored.
     owned = owned_files(repo)
-    # Folded copies for the collision guard: on case-insensitive filesystems
-    # a case-only rename (Guide.md -> guide.md) is the same file, so the new
-    # spelling must still count as previously owned. normcase is identity on
-    # POSIX, so this changes nothing there.
-    previous_folded = {os.path.normcase(p) for p in previous}
-    owned_folded = {os.path.normcase(p) for p in owned}
     # Retiring ownership must not silence obsolete outputs: a previously
     # generated file outside the owned sets that the fresh render drops
     # refuses the promotion until the maintainer deletes it (obsolete) or
     # moves it aside. Otherwise the manifest refresh would erase the only
-    # record and every later check would pass with it still active. The
-    # folded render set keeps case-only renames out of this set on
-    # case-insensitive filesystems.
-    expected_folded = {os.path.normcase(p) for p in expected}
+    # record and every later check would pass with it still active. Identity
+    # is by filesystem object, not spelling, so a case-only rename on a
+    # case-insensitive filesystem is not mistaken for an orphan.
+    known = expected | owned
     orphaned = sorted(
         rel
         for rel in (previous - expected - set(DROPPED) - owned)
-        if os.path.normcase(rel) not in expected_folded
-        and os.path.normcase(rel) not in owned_folded
-        and os.path.lexists(repo / rel)
+        if os.path.lexists(repo / rel) and not same_known_file(repo, rel, known)
     )
     if orphaned:
         joined = ", ".join(orphaned)
@@ -336,8 +391,9 @@ def sync(rendered: Path, repo: Path) -> list[str]:
         dest = repo / rel
         if (
             (dest.is_file() or is_link(dest))
-            and os.path.normcase(rel) not in previous_folded
-            and os.path.normcase(rel) not in owned_folded
+            and rel not in previous
+            and rel not in owned
+            and not same_known_file(repo, rel, previous | owned)
             and not (
                 dest.is_file()
                 and filecmp.cmp(rendered / rel, dest, shallow=False)
@@ -388,10 +444,10 @@ def sync(rendered: Path, repo: Path) -> list[str]:
         remove_stale(repo / rel)
     for rel in sorted(expected - {MANIFEST}):
         dest = repo / rel
-        dest.parent.mkdir(parents=True, exist_ok=True)
+        ensure_cased_dir(repo, rel)
         atomic_copyfile(rendered / rel, dest)
     dest = repo / MANIFEST
-    dest.parent.mkdir(parents=True, exist_ok=True)
+    ensure_cased_dir(repo, MANIFEST)
     atomic_copyfile(rendered / MANIFEST, dest)
     return removed
 
