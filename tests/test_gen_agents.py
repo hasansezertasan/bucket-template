@@ -428,6 +428,23 @@ class SyncTest(unittest.TestCase):
             gen.sync(self.rendered, self.repo)
         self.assertTrue((self.repo / "EXTRA.md").is_symlink())
 
+    def test_same_known_file_rejects_hard_links(self) -> None:
+        # Case-variant hard links share an inode but are distinct directory
+        # entries on case-sensitive filesystems: they must not count as a
+        # case-only rename, or promotion would replace the unowned entry
+        # and silently retire the previous spelling from the manifest.
+        if _fs_case_insensitive(Path(self._tmp.name)):
+            self.skipTest("requires a case-sensitive filesystem")
+        old = Path(self._tmp.name) / "Guide.md"
+        new = Path(self._tmp.name) / "guide.md"
+        old.write_text("old\n", encoding="utf-8")
+        try:
+            os.link(old, new)
+        except (OSError, NotImplementedError) as exc:
+            self.skipTest(f"hard links unsupported: {exc}")
+        self.assertTrue(os.path.samefile(old, new))
+        self.assertFalse(gen.same_known_file(Path(self._tmp.name), "guide.md", {"Guide.md"}))
+
     @needs_symlinks
     def test_refuses_dangling_link_collision(self) -> None:
         # A dangling link cannot be content-compared, so it always refuses;

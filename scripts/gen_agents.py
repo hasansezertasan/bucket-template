@@ -258,8 +258,9 @@ def same_known_file(repo: Path, rel: str, known: set[str]) -> bool:
     spellings are two files. Missing sides never match. Only alternate
     case spellings of the same pathname count: a link pointing at a known
     file (symlink or hard link) must not confer ownership, so candidates
-    are restricted to the same pathname ignoring case and neither side may
-    be a link.
+    are restricted to the same pathname ignoring case, neither side may
+    be a link, and multi-link inodes (hard links) never count as a
+    case-only filesystem alias.
     """
     dest = repo / rel
     if is_link(dest):
@@ -273,6 +274,14 @@ def same_known_file(repo: Path, rel: str, known: set[str]) -> bool:
             continue
         try:
             if os.path.samefile(dest, other_path):
+                try:
+                    if (
+                        os.stat(dest).st_nlink > 1
+                        or os.stat(other_path).st_nlink > 1
+                    ):
+                        continue
+                except OSError:
+                    continue
                 return True
         except OSError:
             continue
