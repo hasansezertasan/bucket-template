@@ -22,6 +22,22 @@ import gen_agents as gen  # noqa: E402
 OUTPUTS = ["AGENTS.md", ".agents/skills/demo/SKILL.md", ".claude/skills/demo/SKILL.md"]
 
 
+def _symlinks_supported() -> bool:
+    try:
+        with TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            (base / "target").write_text("x", encoding="utf-8")
+            (base / "link").symlink_to(base / "target")
+            return True
+    except (OSError, NotImplementedError):
+        return False
+
+
+needs_symlinks = unittest.skipUnless(
+    _symlinks_supported(), "symlinks unavailable on this platform"
+)
+
+
 def write(root: Path, rel: str, text: str = "x\n") -> None:
     path = root / rel
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -136,6 +152,7 @@ class CompareTest(unittest.TestCase):
         write(self.repo, ".claude/settings.local.json", "{}\n")
         self.assertEqual(gen.compare(self.rendered, self.repo), [])
 
+    @needs_symlinks
     def test_reports_symlink_at_expected_path_as_stale(self) -> None:
         dest = self.repo / OUTPUTS[0]
         outside = Path(self._tmp.name) / "outside.txt"
@@ -144,6 +161,7 @@ class CompareTest(unittest.TestCase):
         dest.symlink_to(outside)
         self.assertEqual(gen.compare(self.rendered, self.repo), [f"stale: {OUTPUTS[0]}"])
 
+    @needs_symlinks
     def test_reports_redirected_parent(self) -> None:
         # Outputs read through a linked parent compare against outside
         # content; the check must flag the redirect instead of passing.
@@ -154,7 +172,10 @@ class CompareTest(unittest.TestCase):
         (self.repo / ".agents").symlink_to(mirror.parents[2])
         self.assertEqual(
             gen.compare(self.rendered, self.repo),
-            ["redirected: .agents/skills/demo/SKILL.md via .agents"],
+            [
+                "redirected: .agents/skills/demo/SKILL.md via .agents",
+                "not generated: .agents",
+            ],
         )
 
     def test_reports_orphaned_previous_output(self) -> None:
@@ -304,6 +325,19 @@ class SyncTest(unittest.TestCase):
             (self.repo / "ORPHAN.md").read_text(encoding="utf-8"), "obsolete\n"
         )
 
+    @needs_symlinks
+    def test_reports_linked_owned_root(self) -> None:
+        # With no expected paths left under .agents, a link replacing the
+        # owned root itself must still be visible instead of passing clean.
+        target = Path(self._tmp.name) / "elsewhere"
+        (target / "skills" / "rogue").mkdir(parents=True)
+        (target / "skills" / "rogue" / "SKILL.md").write_text("x\n", encoding="utf-8")
+        render(self.rendered, ["AGENTS.md"])
+        shutil.rmtree(self.repo / ".agents")
+        (self.repo / ".agents").symlink_to(target)
+        self.assertIn("not generated: .agents", gen.compare(self.rendered, self.repo))
+
+    @needs_symlinks
     def test_removes_stale_broken_root_link(self) -> None:
         # A root-owned file replaced by a dangling link is still owned, so
         # dropping it from the render removes the link rather than stranding
@@ -365,6 +399,7 @@ class SyncTest(unittest.TestCase):
         )
         self.assertTrue((self.repo / inner).is_file())
 
+    @needs_symlinks
     def test_directory_with_hand_symlink_becomes_nothing(self) -> None:
         # Non-file entries count as content: a hand-authored link next to
         # stale files still refuses the replacement.
@@ -376,6 +411,7 @@ class SyncTest(unittest.TestCase):
             gen.sync(self.rendered, self.repo)
         self.assertTrue((self.repo / ".agents/skills/old/link").is_symlink())
 
+    @needs_symlinks
     def test_directory_with_broken_symlink_becomes_nothing(self) -> None:
         inner = ".agents/skills/old/inner.md"
         render(self.repo, [*OUTPUTS, inner])
@@ -462,6 +498,7 @@ class SyncTest(unittest.TestCase):
         self.assertEqual(gen.sync(self.rendered, self.repo), [])
         self.assertEqual(gen.compare(self.rendered, self.repo), [])
 
+    @needs_symlinks
     def test_replaces_symlinked_destination(self) -> None:
         # The atomic rename swaps the link itself, so a symlinked
         # destination heals without touching the link target.
@@ -478,6 +515,7 @@ class SyncTest(unittest.TestCase):
         self.assertEqual(dest.read_text(encoding="utf-8"), "new\n")
         self.assertEqual(gen.compare(self.rendered, self.repo), [])
 
+    @needs_symlinks
     def test_heals_broken_symlink_at_expected_path(self) -> None:
         dest = self.repo / OUTPUTS[1]
         dest.unlink()
@@ -487,6 +525,7 @@ class SyncTest(unittest.TestCase):
         self.assertTrue(dest.is_file() and not dest.is_symlink())
         self.assertEqual(gen.compare(self.rendered, self.repo), [])
 
+    @needs_symlinks
     def test_removes_stale_broken_symlink(self) -> None:
         # A broken link at a previously generated path is still a stale
         # output: removing it deletes the link, never its target.
@@ -499,6 +538,7 @@ class SyncTest(unittest.TestCase):
         self.assertFalse(os.path.lexists(self.repo / stale))
         self.assertEqual(gen.compare(self.rendered, self.repo), [])
 
+    @needs_symlinks
     def test_reports_orphaned_broken_symlink(self) -> None:
         render(self.repo, [*OUTPUTS, "ORPHAN.md"])
         (self.repo / "ORPHAN.md").unlink()
@@ -513,6 +553,7 @@ class SyncTest(unittest.TestCase):
             gen.sync(self.rendered, self.repo)
         self.assertTrue((self.repo / "ORPHAN.md").is_symlink())
 
+    @needs_symlinks
     def test_refuses_symlinked_owned_parent(self) -> None:
         elsewhere = Path(self._tmp.name) / "elsewhere"
         elsewhere.mkdir()

@@ -140,7 +140,13 @@ def owned_files(root: Path) -> set[str]:
     }
     for owned in OWNED_DIRS:
         base = root / owned
-        if base.is_dir():
+        if is_link(base):
+            # The owned root itself is a link: no manifest lists it and no
+            # expected path descends under it anymore, yet it can still
+            # expose outside content. Report it as a leftover; removal stays
+            # manual, as with any other adopted path.
+            found.add(owned)
+        elif base.is_dir():
             for p in base.rglob("*"):
                 rel = p.relative_to(root).as_posix()
                 if (p.is_file() or is_link(p)) and link_ancestor(root, rel) is None:
