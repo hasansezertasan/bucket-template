@@ -103,15 +103,67 @@ class CompareTest(unittest.TestCase):
 
     def test_reports_unwanted_root_files(self) -> None:
         write(self.repo, "CLAUDE.md")
-        write(self.repo, ".agents/settings.json", "{}\n")
+        write(self.repo, "GEMINI.md")
         self.assertEqual(
             gen.compare(self.rendered, self.repo),
-            ["unwanted: CLAUDE.md", "unwanted: .agents/settings.json"],
+            ["unwanted: CLAUDE.md", "unwanted: GEMINI.md"],
         )
 
     def test_ignores_claude_files_outside_skills(self) -> None:
         write(self.repo, ".claude/settings.local.json", "{}\n")
         self.assertEqual(gen.compare(self.rendered, self.repo), [])
+
+
+class SyncTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self._tmp = TemporaryDirectory()
+        base = Path(self._tmp.name)
+        self.rendered, self.repo = base / "rendered", base / "repo"
+        render(self.rendered, OUTPUTS)
+        render(self.repo, OUTPUTS)
+
+    def tearDown(self) -> None:
+        self._tmp.cleanup()
+
+    def test_promotes_rendered_files(self) -> None:
+        write(self.repo, "AGENTS.md", "hand edit\n")
+        (self.repo / OUTPUTS[1]).unlink()
+        removed = gen.sync(self.rendered, self.repo)
+        self.assertEqual(removed, [])
+        self.assertEqual(gen.compare(self.rendered, self.repo), [])
+
+    def test_removes_previously_generated_stale_files(self) -> None:
+        stale = ".agents/skills/old/SKILL.md"
+        render(self.repo, [*OUTPUTS, stale])
+        removed = gen.sync(self.rendered, self.repo)
+        self.assertEqual(removed, [stale])
+        self.assertFalse((self.repo / stale).exists())
+
+    def test_keeps_hand_added_files_for_check_to_report(self) -> None:
+        extra = ".agents/skills/handadded/SKILL.md"
+        write(self.repo, extra)
+        removed = gen.sync(self.rendered, self.repo)
+        self.assertEqual(removed, [])
+        self.assertTrue((self.repo / extra).is_file())
+        self.assertEqual(
+            gen.compare(self.rendered, self.repo), [f"not generated: {extra}"]
+        )
+
+    def test_never_deletes_dropped_files(self) -> None:
+        render(self.repo, [*OUTPUTS, "CLAUDE.md"])
+        write(self.repo, "CLAUDE.md")
+        removed = gen.sync(self.rendered, self.repo)
+        self.assertEqual(removed, [])
+        self.assertTrue((self.repo / "CLAUDE.md").is_file())
+
+    def test_tolerates_missing_repo_manifest(self) -> None:
+        base = Path(self._tmp.name)
+        fresh, bare = base / "fresh", base / "bare"
+        render(fresh, OUTPUTS)
+        bare.mkdir()
+        removed = gen.sync(fresh, bare)
+        self.assertEqual(removed, [])
+        self.assertEqual(gen.compare(fresh, bare), [])
 
 
 if __name__ == "__main__":

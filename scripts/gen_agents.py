@@ -4,16 +4,22 @@
 ``.ai-rulez/`` is the single source; ``ai-rulez generate`` renders it into
 ``AGENTS.md``, ``.claude/skills/``, and ``.agents/skills/``. Those outputs are
 committed (``.gitignore`` is Cobo-managed), so this wrapper keeps them
-reproducible:
+reproducible with a render-and-promote flow: ai-rulez owns rendering, the
+wrapper owns packaging and drift checks.
 
-- It deletes the side files the presets always write, since ai-rulez offers no
-  switch to turn them off. ``CLAUDE.md`` and ``GEMINI.md`` would duplicate
-  ``AGENTS.md``, which Claude Code and Antigravity read. ``.agents/settings.json``
-  registers an MCP server launched with ``npx -y ai-rulez@latest``, an unpinned
-  package an agent would run at session start.
-- ``--check`` renders into a temporary copy and compares it with the working
-  tree, so a stale, missing, hand-edited, or unwanted output fails without the
-  check modifying any file.
+- Render into a staging copy, so the side files the presets always write
+  (``CLAUDE.md`` and ``GEMINI.md`` would duplicate ``AGENTS.md``, which Claude
+  Code and Antigravity read) never touch the checkout. ai-rulez offers no
+  switch to turn them off — native ``generate --check`` reports them as
+  missing, which is why this wrapper keeps its own ``--check``.
+- Promote (the default mode) copies the rendered files over and removes files
+  the previous render produced but the fresh one no longer lists, so deleting
+  a canonical skill removes its generated copies. Dropped side files are
+  neither promoted nor deleted by promote: a hand-written ``CLAUDE.md`` would
+  shadow ``AGENTS.md`` for the agent that reads it, so ``--check`` reports it
+  instead of vaporizing it.
+- ``--check`` renders into staging and compares it with the working tree, so a
+  stale, missing, hand-edited, or unwanted output fails without modifying files.
 
 Standard library only; requires the ``ai-rulez`` binary from ``mise install``.
 """
@@ -32,7 +38,11 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 CONFIG_DIR = ".ai-rulez"
 MANIFEST = f"{CONFIG_DIR}/.generated-manifest.json"
-DROPPED = ("CLAUDE.md", "GEMINI.md", ".agents/settings.json")
+# Preset side files that must never reach the checkout: root duplicates of
+# AGENTS.md. (ai-rulez stopped emitting .agents/settings.json under
+# `[mcp] self_server = false` + `--no-self-mcp`; if it ever returns it rides
+# the manifest like any other output instead of being silently dropped.)
+DROPPED = ("CLAUDE.md", "GEMINI.md")
 # Directories owned entirely by generation; any other file in them is stale.
 # Only skills/ under .claude/, since .claude/ also holds local user settings.
 OWNED_DIRS = (".claude/skills", ".agents")
@@ -40,22 +50,41 @@ OWNED_DIRS = (".claude/skills", ".agents")
 OWNED_FILES = ("AGENTS.md",)
 
 
-def run_ai_rulez(root: Path) -> None:
-    """Run ``ai-rulez generate`` for the config under ``root`` and post-process."""
+def find_binary() -> str:
+    """Return the ``ai-rulez`` binary path or exit with a pointer to mise."""
     binary = shutil.which("ai-rulez")
     if binary is None:
         sys.exit("ai-rulez not found on PATH; run `mise install` first.")
+    return binary
+
+
+def render(source_root: Path, staging: Path) -> None:
+    """Render ``source_root``'s config into ``staging`` and post-process it."""
     # v5 reads only config.toml (migrated from config.yaml); keep the yaml
     # fallback so the script still works on a pre-migration checkout.
-    config = root / CONFIG_DIR / "config.toml"
+    config = staging / CONFIG_DIR / "config.toml"
+    shutil.copytree(source_root / CONFIG_DIR, staging / CONFIG_DIR)
     if not config.is_file():
-        config = root / CONFIG_DIR / "config.yaml"
+        config = staging / CONFIG_DIR / "config.yaml"
+    # Outputs land next to the -C config, but the mise shim resolves the
+    # toolchain from the working directory: run from the source root so the
+    # project's pinned ai-rulez is used even when the caller invoked this
+    # script under a bare environment (a temp cwd would fall back to whatever
+    # the ambient mise config provides).
     subprocess.run(
-        [binary, "generate", "--quiet", "--no-self-mcp", "-C", str(config)],
-        cwd=root,
+        [
+            find_binary(),
+            "generate",
+            "--quiet",
+            "--no-self-mcp",
+            "--strict-config",
+            "-C",
+            str(config),
+        ],
+        cwd=source_root,
         check=True,
     )
-    drop_unwanted(root)
+    drop_unwanted(staging)
 
 
 def drop_unwanted(root: Path) -> None:
@@ -96,6 +125,30 @@ def owned_files(root: Path) -> set[str]:
     return found
 
 
+def sync(rendered: Path, repo: Path) -> list[str]:
+    """Promote a staging ``rendered`` tree into ``repo``.
+
+    Copies every expected file over and removes files the repo's previous
+    manifest lists but the fresh render no longer produces. Only previously
+    generated files are ever removed: hand-added files stay for ``--check``
+    to report, and dropped side files are never touched. Returns the removed
+    paths.
+    """
+    expected = expected_files(rendered)
+    try:
+        previous = expected_files(repo)
+    except (FileNotFoundError, json.JSONDecodeError, KeyError):
+        previous = set()
+    for rel in sorted(expected):
+        dest = repo / rel
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(rendered / rel, dest)
+    removed = sorted((previous & owned_files(repo)) - expected - set(DROPPED))
+    for rel in removed:
+        (repo / rel).unlink()
+    return removed
+
+
 def compare(rendered: Path, repo: Path) -> list[str]:
     """Describe how ``repo``'s outputs differ from a fresh render in ``rendered``."""
     expected = expected_files(rendered)
@@ -117,8 +170,7 @@ def compare(rendered: Path, repo: Path) -> list[str]:
 def check() -> int:
     with tempfile.TemporaryDirectory() as tmp:
         work = Path(tmp)
-        shutil.copytree(REPO / CONFIG_DIR, work / CONFIG_DIR)
-        run_ai_rulez(work)
+        render(REPO, work)
         problems = compare(work, REPO)
     if problems:
         print("Generated agent files are out of date with .ai-rulez/:", file=sys.stderr)
@@ -127,6 +179,15 @@ def check() -> int:
         print("Run `mise run agents:generate` and commit the result.", file=sys.stderr)
         return 1
     return 0
+
+
+def generate() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        work = Path(tmp)
+        render(REPO, work)
+        removed = sync(work, REPO)
+    for rel in removed:
+        print(f"removed stale output: {rel}")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -139,7 +200,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.check:
         return check()
-    run_ai_rulez(REPO)
+    generate()
     return 0
 
 
