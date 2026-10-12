@@ -174,8 +174,12 @@ def sync(rendered: Path, repo: Path) -> list[str]:
 
     Copies every expected file over and removes files the repo's previous
     manifest lists but the fresh render no longer produces. Only previously
-    generated files under the owned sets are ever removed: hand-added files
-    stay for ``--check`` to report, and dropped side files are never touched.
+    generated files under the owned sets are ever removed, and a newly
+    rendered path never overwrites a hand-authored file: a destination that
+    is absent from the previous manifest and differs from the rendered
+    output refuses the whole promotion, while byte-identical content
+    promotes as a no-op. Hand-added files otherwise stay for ``--check``
+    to report, and dropped side files are never touched.
     Every destination is preflighted for symlinks before anything is written,
     and the manifest itself is replaced last: a mid-loop failure keeps the
     previous manifest, so a retry still recognizes the full previously
@@ -194,6 +198,17 @@ def sync(rendered: Path, repo: Path) -> list[str]:
         check_no_symlink(repo, rel)
     for rel in sorted(expected - {MANIFEST}):
         dest = repo / rel
+        if (
+            dest.is_file()
+            and rel not in previous
+            and not filecmp.cmp(rendered / rel, dest, shallow=False)
+        ):
+            sys.exit(
+                f"error: refusing to overwrite hand-authored {rel}: it is "
+                "absent from the previous manifest and differs from the "
+                "rendered output. Move it aside and re-run, or delete it to "
+                "adopt the generated file."
+            )
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(rendered / rel, dest)
         sync_exec_bit(rendered / rel, dest)

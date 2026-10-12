@@ -208,6 +208,25 @@ class SyncTest(unittest.TestCase):
         self.assertEqual(removed, [])
         self.assertTrue((self.repo / "CLAUDE.md").is_file())
 
+    def test_refuses_to_overwrite_hand_authored_new_output(self) -> None:
+        # A newly rendered path occupied by a hand-authored file absent from
+        # the previous manifest must not be silently overwritten.
+        extra = ".agents/skills/new/SKILL.md"
+        render(self.rendered, [*OUTPUTS, extra])
+        write(self.repo, extra, "hand draft\n")
+        with self.assertRaises(SystemExit):
+            gen.sync(self.rendered, self.repo)
+        self.assertEqual((self.repo / extra).read_text(encoding="utf-8"), "hand draft\n")
+
+    def test_promotes_identical_hand_authored_new_output(self) -> None:
+        # Byte-identical content is a no-op, not a conflict.
+        extra = ".agents/skills/new/SKILL.md"
+        render(self.rendered, [*OUTPUTS, extra])
+        write(self.repo, extra)
+        removed = gen.sync(self.rendered, self.repo)
+        self.assertEqual(removed, [])
+        self.assertEqual(gen.compare(self.rendered, self.repo), [])
+
     def test_tolerates_missing_repo_manifest(self) -> None:
         base = Path(self._tmp.name)
         fresh, bare = base / "fresh", base / "bare"
