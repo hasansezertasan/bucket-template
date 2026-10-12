@@ -198,7 +198,7 @@ def dir_is_fully_stale(dest: Path, repo: Path, removed: set[str]) -> bool:
         return False
     for entry in entries:
         rel = entry.relative_to(repo).as_posix()
-        if entry.is_symlink():
+        if is_link(entry):
             if rel not in removed:
                 return False
         elif entry.is_dir():

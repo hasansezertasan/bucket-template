@@ -303,6 +303,32 @@ class SyncTest(unittest.TestCase):
         self.assertTrue((self.repo / ".agents/skills/old").is_file())
         self.assertEqual(gen.compare(self.rendered, self.repo), [])
 
+    def test_directory_with_hand_junction_becomes_nothing(self) -> None:
+        # A junction must take the link branch, not the directory branch:
+        # recursing into its target would misclassify it (or crash on
+        # paths outside the repo) instead of refusing the replacement.
+        inner = ".agents/skills/old/inner.md"
+        render(self.repo, [*OUTPUTS, inner])
+        handdir = self.repo / ".agents/skills/old/handdir"
+        handdir.mkdir()
+        (handdir / "keep.md").write_text("mine\n", encoding="utf-8")
+        render(self.rendered, [*OUTPUTS, ".agents/skills/old"])
+        real_isjunction = getattr(os.path, "isjunction", None)
+
+        def fake_isjunction(path) -> bool:
+            if real_isjunction is not None and real_isjunction(path):
+                return True
+            return Path(path) == handdir
+
+        with unittest.mock.patch.object(
+            os.path, "isjunction", fake_isjunction, create=True
+        ):
+            with self.assertRaises(SystemExit):
+                gen.sync(self.rendered, self.repo)
+        self.assertEqual(
+            (handdir / "keep.md").read_text(encoding="utf-8"), "mine\n"
+        )
+
     def test_parent_blocked_by_hand_file(self) -> None:
         render(self.rendered, [*OUTPUTS, ".agents/skills/new/deep.md"])
         write(self.repo, ".agents/skills/new", "hand file\n")
