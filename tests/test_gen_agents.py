@@ -330,6 +330,46 @@ class SyncTest(unittest.TestCase):
         with self.assertRaises(SystemExit):
             gen.sync(self.rendered, self.repo)
 
+    def test_case_only_rename_with_new_content(self) -> None:
+        # Case-insensitive filesystems treat Guide.md -> guide.md as one
+        # file: the new spelling stays previously owned and promotes, and
+        # the old spelling is removed as stale.
+        old, new = ".agents/skills/Guide.md", ".agents/skills/guide.md"
+        render(self.repo, [*OUTPUTS, old])
+        render(self.rendered, [*OUTPUTS, new])
+        write(self.rendered, new, "new\n")
+        lowered = lambda s: s.lower()
+        with unittest.mock.patch.object(gen.os.path, "normcase", lowered):
+            removed = gen.sync(self.rendered, self.repo)
+        self.assertEqual(removed, [old])
+        self.assertEqual((self.repo / new).read_text(encoding="utf-8"), "new\n")
+        # Compare directory names, not exists(): the default macOS
+        # filesystem is itself case-insensitive, so both spellings resolve
+        # to the one promoted file there.
+        names = [p.name for p in (self.repo / ".agents/skills").iterdir()]
+        self.assertIn("guide.md", names)
+        self.assertNotIn("Guide.md", names)
+        self.assertEqual(gen.compare(self.rendered, self.repo), [])
+
+    def test_case_only_rename_outside_owned_refreshes_manifest(self) -> None:
+        # Outside the owned sets the old spelling is not removal-eligible,
+        # but its folded form still counts as expected, so promotion is
+        # neither refused as a collision nor retired as an orphan: the
+        # manifest refreshes. (On POSIX both spellings persist side by side,
+        # an artifact of the simulation; on a real case-insensitive
+        # filesystem they are one file.)
+        render(self.repo, [*OUTPUTS, "Guide.md"])
+        render(self.rendered, [*OUTPUTS, "guide.md"])
+        write(self.rendered, "guide.md", "new\n")
+        lowered = lambda s: s.lower()
+        with unittest.mock.patch.object(gen.os.path, "normcase", lowered):
+            self.assertEqual(gen.sync(self.rendered, self.repo), [])
+        self.assertEqual((self.repo / "guide.md").read_text(encoding="utf-8"), "new\n")
+        self.assertEqual(
+            (self.repo / gen.MANIFEST).read_text(encoding="utf-8"),
+            (self.rendered / gen.MANIFEST).read_text(encoding="utf-8"),
+        )
+
     @needs_symlinks
     def test_refuses_unowned_link_collision(self) -> None:
         # Links get the same ownership check as regular files: a new output

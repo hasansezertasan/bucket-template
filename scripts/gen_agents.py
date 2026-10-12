@@ -299,15 +299,26 @@ def sync(rendered: Path, repo: Path) -> list[str]:
     # sets are generation-owned by definition, so a lost manifest still
     # recovers instead of refusing every output as hand-authored.
     owned = owned_files(repo)
+    # Folded copies for the collision guard: on case-insensitive filesystems
+    # a case-only rename (Guide.md -> guide.md) is the same file, so the new
+    # spelling must still count as previously owned. normcase is identity on
+    # POSIX, so this changes nothing there.
+    previous_folded = {os.path.normcase(p) for p in previous}
+    owned_folded = {os.path.normcase(p) for p in owned}
     # Retiring ownership must not silence obsolete outputs: a previously
     # generated file outside the owned sets that the fresh render drops
     # refuses the promotion until the maintainer deletes it (obsolete) or
     # moves it aside. Otherwise the manifest refresh would erase the only
-    # record and every later check would pass with it still active.
+    # record and every later check would pass with it still active. The
+    # folded render set keeps case-only renames out of this set on
+    # case-insensitive filesystems.
+    expected_folded = {os.path.normcase(p) for p in expected}
     orphaned = sorted(
         rel
         for rel in (previous - expected - set(DROPPED) - owned)
-        if os.path.lexists(repo / rel)
+        if os.path.normcase(rel) not in expected_folded
+        and os.path.normcase(rel) not in owned_folded
+        and os.path.lexists(repo / rel)
     )
     if orphaned:
         joined = ", ".join(orphaned)
@@ -325,8 +336,8 @@ def sync(rendered: Path, repo: Path) -> list[str]:
         dest = repo / rel
         if (
             (dest.is_file() or is_link(dest))
-            and rel not in previous
-            and rel not in owned
+            and os.path.normcase(rel) not in previous_folded
+            and os.path.normcase(rel) not in owned_folded
             and not (
                 dest.is_file()
                 and filecmp.cmp(rendered / rel, dest, shallow=False)
