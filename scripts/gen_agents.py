@@ -128,6 +128,8 @@ def owned_files(root: Path) -> set[str]:
     Links count by themselves, never by their targets: a broken symlink at
     a previously generated path is still a stale output to remove, and one
     squatting elsewhere in an owned tree is still a leftover to report.
+    Junctions count too: ``is_file()`` misses them, so ``is_link()`` backs
+    both predicates.
     """
     found = {
         rel
@@ -140,7 +142,7 @@ def owned_files(root: Path) -> set[str]:
             found.update(
                 p.relative_to(root).as_posix()
                 for p in base.rglob("*")
-                if p.is_file() or p.is_symlink()
+                if p.is_file() or is_link(p)
             )
     return found
 

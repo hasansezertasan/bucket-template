@@ -97,6 +97,26 @@ class CompareTest(unittest.TestCase):
             ["not generated: .agents/skills/old/SKILL.md"],
         )
 
+    def test_reports_squatting_junction_as_leftover(self) -> None:
+        # is_file() misses junctions, so the owned scan must back the
+        # predicate with is_link(): otherwise a squatting junction passes
+        # --check and exposes outside content later.
+        squat = self.repo / ".agents/skills/squat"
+        squat.mkdir()
+        (squat / "notes.md").write_text("mine\n", encoding="utf-8")
+        real_isjunction = getattr(os.path, "isjunction", None)
+
+        def fake_isjunction(path) -> bool:
+            if real_isjunction is not None and real_isjunction(path):
+                return True
+            return Path(path) == squat
+
+        with unittest.mock.patch.object(
+            os.path, "isjunction", fake_isjunction, create=True
+        ):
+            problems = gen.compare(self.rendered, self.repo)
+        self.assertIn("not generated: .agents/skills/squat", problems)
+
     def test_reports_root_file_no_longer_generated(self) -> None:
         render(self.rendered, OUTPUTS[1:])
         self.assertEqual(
