@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import sys
 import unittest
+import unittest.mock
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -112,6 +113,37 @@ class CompareTest(unittest.TestCase):
     def test_ignores_claude_files_outside_skills(self) -> None:
         write(self.repo, ".claude/settings.local.json", "{}\n")
         self.assertEqual(gen.compare(self.rendered, self.repo), [])
+
+
+class RenderTest(unittest.TestCase):
+    def test_runs_project_toolchain_from_source_root(self) -> None:
+        # Regression lock: the mise shim resolves the ai-rulez version from
+        # the working directory, so render must run from the source root
+        # (where .config/mise.toml pins it) rather than the staging copy —
+        # otherwise a bare environment falls back to whatever ambient config
+        # provides (once an ancient npm-wrapped v4).
+        with TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            source, staging = base / "src", base / "staging"
+            staging.mkdir()
+            with (
+                unittest.mock.patch.object(gen.subprocess, "run") as run,
+                unittest.mock.patch.object(
+                    gen.shutil, "which", return_value="/bin/ai-rulez"
+                ),
+                unittest.mock.patch.object(gen.shutil, "copytree"),
+            ):
+                gen.render(source, staging)
+            argv, kwargs = run.call_args.args, run.call_args.kwargs
+            self.assertEqual(argv[0][0], "/bin/ai-rulez")
+            self.assertIn("--no-self-mcp", argv[0])
+            self.assertIn("--strict-config", argv[0])
+            self.assertEqual(kwargs.get("cwd"), source)
+            config_flag = argv[0][argv[0].index("-C") + 1]
+            self.assertTrue(
+                config_flag.startswith(str(staging)),
+                f"config must stay inside staging, got {config_flag!r}",
+            )
 
 
 class SyncTest(unittest.TestCase):
