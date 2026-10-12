@@ -144,6 +144,19 @@ class CompareTest(unittest.TestCase):
         dest.symlink_to(outside)
         self.assertEqual(gen.compare(self.rendered, self.repo), [f"stale: {OUTPUTS[0]}"])
 
+    def test_reports_redirected_parent(self) -> None:
+        # Outputs read through a linked parent compare against outside
+        # content; the check must flag the redirect instead of passing.
+        mirror = Path(self._tmp.name) / "elsewhere" / ".agents" / "skills" / "demo"
+        mirror.mkdir(parents=True)
+        (mirror / "SKILL.md").write_text("x\n", encoding="utf-8")
+        shutil.rmtree(self.repo / ".agents")
+        (self.repo / ".agents").symlink_to(mirror.parents[2])
+        self.assertEqual(
+            gen.compare(self.rendered, self.repo),
+            ["redirected: .agents/skills/demo/SKILL.md via .agents"],
+        )
+
     def test_reports_orphaned_previous_output(self) -> None:
         # A file the previous manifest lists outside the owned sets (say, an
         # instruction file from a removed preset) is reported, not silently

@@ -129,7 +129,9 @@ def owned_files(root: Path) -> set[str]:
     a previously generated path is still a stale output to remove, and one
     squatting elsewhere in an owned tree is still a leftover to report.
     Junctions count too: ``is_file()`` misses them, so ``is_link()`` backs
-    both predicates.
+    both predicates. Entries beneath a linked directory are excluded: they
+    live outside the checkout, and listing them under repo paths would
+    attribute foreign content (or removals) to the tree.
     """
     found = {
         rel
@@ -139,11 +141,10 @@ def owned_files(root: Path) -> set[str]:
     for owned in OWNED_DIRS:
         base = root / owned
         if base.is_dir():
-            found.update(
-                p.relative_to(root).as_posix()
-                for p in base.rglob("*")
-                if p.is_file() or is_link(p)
-            )
+            for p in base.rglob("*"):
+                rel = p.relative_to(root).as_posix()
+                if (p.is_file() or is_link(p)) and link_ancestor(root, rel) is None:
+                    found.add(rel)
     return found
 
 
@@ -209,6 +210,21 @@ def exec_bit_differs(src: Path, dest: Path) -> bool:
     src_exec = bool(stat.S_IMODE(os.stat(src).st_mode) & 0o100)
     dest_exec = bool(stat.S_IMODE(os.stat(dest).st_mode) & 0o100)
     return src_exec != dest_exec
+
+
+def link_ancestor(repo: Path, rel: str) -> str | None:
+    """Return the nearest ancestor of ``rel`` under ``repo`` that is a link, if any.
+
+    Comparisons through a redirected parent are meaningless: every check
+    would read the link target outside the checkout while reporting on the
+    checkout path.
+    """
+    current = repo
+    for part in Path(rel).parts[:-1]:
+        current = current / part
+        if is_link(current):
+            return current.relative_to(repo).as_posix()
+    return None
 
 
 def dir_is_fully_stale(dest: Path, repo: Path, removed: set[str]) -> bool:
@@ -341,7 +357,10 @@ def compare(rendered: Path, repo: Path) -> list[str]:
     problems = []
     for rel in sorted(expected):
         target = repo / rel
-        if not target.is_file():
+        redirect = link_ancestor(repo, rel)
+        if redirect is not None:
+            problems.append(f"redirected: {rel} via {redirect}")
+        elif not target.is_file():
             problems.append(f"missing: {rel}")
         elif is_link(target):
             # Follows to matching content, but the committed artifact is a
