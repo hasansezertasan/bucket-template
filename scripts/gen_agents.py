@@ -323,19 +323,26 @@ def sync(rendered: Path, repo: Path) -> list[str]:
         check_no_symlink(repo, rel)
     for rel in sorted(expected - {MANIFEST}):
         dest = repo / rel
-        if dest.is_file() and not is_link(dest):
-            if (
-                rel not in previous
-                and rel not in owned
-                and not filecmp.cmp(rendered / rel, dest, shallow=False)
-            ):
-                sys.exit(
-                    f"error: refusing to overwrite hand-authored {rel}: it is "
-                    "neither in the previous manifest nor under a "
-                    "generation-owned path, and differs from the rendered "
-                    "output. Move it aside and re-run, or delete it to "
-                    "adopt the generated file."
-                )
+        if (
+            (dest.is_file() or is_link(dest))
+            and rel not in previous
+            and rel not in owned
+            and not (
+                dest.is_file()
+                and filecmp.cmp(rendered / rel, dest, shallow=False)
+            )
+        ):
+            # A new output colliding with unowned content — regular file,
+            # file link, or dangling link alike — refuses instead of
+            # silently replacing it. Byte-identical content promotes as a
+            # no-op; previously generated and owned paths are unaffected.
+            sys.exit(
+                f"error: refusing to overwrite hand-authored {rel}: it is "
+                "neither in the previous manifest nor under a "
+                "generation-owned path, and differs from the rendered "
+                "output. Move it aside and re-run, or delete it to "
+                "adopt the generated file."
+            )
         elif dest.is_dir() and not is_link(dest):
             if dir_is_fully_stale(dest, repo, removed_set):
                 replace_dirs.append(rel)

@@ -330,6 +330,40 @@ class SyncTest(unittest.TestCase):
         with self.assertRaises(SystemExit):
             gen.sync(self.rendered, self.repo)
 
+    @needs_symlinks
+    def test_refuses_unowned_link_collision(self) -> None:
+        # Links get the same ownership check as regular files: a new output
+        # colliding with an unowned link refuses instead of swapping it.
+        outside = Path(self._tmp.name) / "outside.txt"
+        outside.write_text("precious\n", encoding="utf-8")
+        render(self.rendered, [*OUTPUTS, "EXTRA.md"])
+        (self.repo / "EXTRA.md").symlink_to(outside)
+        with self.assertRaises(SystemExit):
+            gen.sync(self.rendered, self.repo)
+        self.assertEqual(outside.read_text(encoding="utf-8"), "precious\n")
+        self.assertTrue((self.repo / "EXTRA.md").is_symlink())
+
+    @needs_symlinks
+    def test_refuses_dangling_link_collision(self) -> None:
+        # A dangling link cannot be content-compared, so it always refuses;
+        # previously it fell through to a failing atomic replace.
+        render(self.rendered, [*OUTPUTS, "EXTRA.md"])
+        (self.repo / "EXTRA.md").symlink_to("nowhere")
+        with self.assertRaises(SystemExit):
+            gen.sync(self.rendered, self.repo)
+        self.assertTrue((self.repo / "EXTRA.md").is_symlink())
+
+    @needs_symlinks
+    def test_promotes_identical_unowned_link(self) -> None:
+        render(self.rendered, [*OUTPUTS, "EXTRA.md"])
+        outside = Path(self._tmp.name) / "outside.txt"
+        outside.write_text("x\n", encoding="utf-8")
+        (self.repo / "EXTRA.md").symlink_to(outside)
+        removed = gen.sync(self.rendered, self.repo)
+        self.assertEqual(removed, [])
+        self.assertFalse((self.repo / "EXTRA.md").is_symlink())
+        self.assertEqual(gen.compare(self.rendered, self.repo), [])
+
     def test_refuses_promotion_with_orphans(self) -> None:
         # Retiring the manifest must not silently drop ownership of an
         # obsolete outside-owned file that every later check would miss.
