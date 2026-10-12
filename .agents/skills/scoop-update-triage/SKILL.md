@@ -2,7 +2,7 @@
 name: scoop-update-triage
 description: "Triage scheduled or release-dispatch Scoop updates that fail, skip a release, or produce suspect hashes. Use for update-manifests.yml and update-manifest-dispatch.yml incidents, including upstream repository/asset renames, rate limits, hash mismatches, and invalid dispatch payloads; use the repository updater within its supported boundaries, delegate manifest repairs, and finish with scoop-verify."
 # Content-Hash: blake3:47a4412ecf7fa154f87a91c94c2d3fdfb675d26aaad9e39c974c258bf01d4366
-# Source-Hash: blake3:ce7d8a7d8447df64e15c6abcf939a57c009926f6b710dc3d3b4e1a51fde2cd6c
+# Source-Hash: blake3:66bf5f14bf6e0b285157651d610503c6723fc045520e0acceac2f7f9c366630e
 ---
 
 # Triage an automated update
