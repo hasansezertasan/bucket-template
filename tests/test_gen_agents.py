@@ -286,6 +286,16 @@ class SyncTest(unittest.TestCase):
         self.assertTrue(os.stat(self.repo / OUTPUTS[1]).st_mode & 0o100)
 
     @unittest.skipUnless(os.name == "posix", "executable-bit semantics")
+    def test_promotes_manifest_executable_bit(self) -> None:
+        # The manifest is copied on a separate path from the other outputs;
+        # its mode must be mirrored too, or a "stale mode" report on it
+        # could never be repaired by generate.
+        (self.rendered / gen.MANIFEST).chmod(0o755)
+        gen.sync(self.rendered, self.repo)
+        self.assertTrue(os.stat(self.repo / gen.MANIFEST).st_mode & 0o100)
+        self.assertEqual(gen.compare(self.rendered, self.repo), [])
+
+    @unittest.skipUnless(os.name == "posix", "executable-bit semantics")
     def test_reports_mode_drift(self) -> None:
         (self.repo / OUTPUTS[0]).chmod(0o755)
         self.assertEqual(

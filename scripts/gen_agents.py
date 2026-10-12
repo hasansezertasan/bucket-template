@@ -217,6 +217,7 @@ def sync(rendered: Path, repo: Path) -> list[str]:
     dest = repo / MANIFEST
     dest.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(rendered / MANIFEST, dest)
+    sync_exec_bit(rendered / MANIFEST, dest)
     return removed
 
 
