@@ -169,21 +169,31 @@ def exec_bit_differs(src: Path, dest: Path) -> bool:
     return src_exec != dest_exec
 
 
+def dir_is_fully_stale(dest: Path, repo: Path, removed: set[str]) -> bool:
+    """True when everything under ``dest`` is stale-manifest-owned or nothing.
+
+    Only then may promotion replace the directory with a generated file:
+    anything else inside is hand-authored content that must be refused, not
+    vaporized.
+    """
+    try:
+        files = [p for p in dest.rglob("*") if p.is_file()]
+    except OSError:
+        return False
+    return all(p.relative_to(repo).as_posix() in removed for p in files)
+
+
 def sync(rendered: Path, repo: Path) -> list[str]:
     """Promote a staging ``rendered`` tree into ``repo``.
 
-    Copies every expected file over and removes files the repo's previous
-    manifest lists but the fresh render no longer produces. Only previously
-    generated files under the owned sets are ever removed, and a newly
-    rendered path never overwrites a hand-authored file: a destination that
-    is absent from the previous manifest and differs from the rendered
-    output refuses the whole promotion, while byte-identical content
-    promotes as a no-op. Hand-added files otherwise stay for ``--check``
-    to report, and dropped side files are never touched.
-    Every destination is preflighted for symlinks before anything is written,
-    and the manifest itself is replaced last: a mid-loop failure keeps the
-    previous manifest, so a retry still recognizes the full previously
-    generated set instead of stranding stale outputs no later run will clean.
+    Runs in two phases. First every destination is validated without writing
+    anything: symlinks are refused, hand-authored collisions are refused, and
+    file/directory transitions are either cleared (fully stale-manifest-owned)
+    or refused. Then stale outputs are removed, files are copied, and the
+    manifest replaced last, so a failure keeps the previous manifest and a
+    retry recognizes the full previously generated set. Only previously
+    generated files under the owned sets are ever removed; hand-added files
+    stay for ``--check`` to report, and dropped side files are never touched.
     Returns the removed paths.
     """
     expected = expected_files(rendered)
@@ -192,28 +202,50 @@ def sync(rendered: Path, repo: Path) -> list[str]:
     except (FileNotFoundError, json.JSONDecodeError, KeyError):
         previous = set()
     removed = sorted((previous & owned_files(repo)) - expected - set(DROPPED))
+    removed_set = set(removed)
+    replace_dirs: list[str] = []
     for rel in sorted(expected):
         check_no_symlink(repo, rel)
     for rel in removed:
         check_no_symlink(repo, rel)
     for rel in sorted(expected - {MANIFEST}):
         dest = repo / rel
-        if (
-            dest.is_file()
-            and rel not in previous
-            and not filecmp.cmp(rendered / rel, dest, shallow=False)
-        ):
-            sys.exit(
-                f"error: refusing to overwrite hand-authored {rel}: it is "
-                "absent from the previous manifest and differs from the "
-                "rendered output. Move it aside and re-run, or delete it to "
-                "adopt the generated file."
-            )
+        if dest.is_file() and not dest.is_symlink():
+            if rel not in previous and not filecmp.cmp(
+                rendered / rel, dest, shallow=False
+            ):
+                sys.exit(
+                    f"error: refusing to overwrite hand-authored {rel}: it is "
+                    "absent from the previous manifest and differs from the "
+                    "rendered output. Move it aside and re-run, or delete it "
+                    "to adopt the generated file."
+                )
+        elif dest.is_dir() and not dest.is_symlink():
+            if dir_is_fully_stale(dest, repo, removed_set):
+                replace_dirs.append(rel)
+            else:
+                sys.exit(
+                    f"error: cannot promote {rel}: {rel} is a directory "
+                    "holding files generation does not own. Remove it and "
+                    "re-run, or move its hand-authored content aside first."
+                )
+        parts = Path(rel).parts[:-1]
+        for depth in range(1, len(parts) + 1):
+            ancestor = Path(*parts[:depth]).as_posix()
+            if (repo / ancestor).is_file() and ancestor not in removed_set:
+                sys.exit(
+                    f"error: cannot promote {rel}: parent {ancestor} is a "
+                    "file generation does not own. Remove it and re-run."
+                )
+    for rel in replace_dirs:
+        shutil.rmtree(repo / rel)
+    for rel in removed:
+        (repo / rel).unlink(missing_ok=True)
+    for rel in sorted(expected - {MANIFEST}):
+        dest = repo / rel
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(rendered / rel, dest)
         sync_exec_bit(rendered / rel, dest)
-    for rel in removed:
-        (repo / rel).unlink()
     dest = repo / MANIFEST
     dest.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(rendered / MANIFEST, dest)

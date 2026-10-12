@@ -227,6 +227,62 @@ class SyncTest(unittest.TestCase):
         self.assertEqual(removed, [])
         self.assertEqual(gen.compare(self.rendered, self.repo), [])
 
+    def test_collision_refusal_writes_nothing(self) -> None:
+        # A conflicting new path sorts after a changed output; the refusal
+        # must leave even the earlier outputs unpromoted.
+        render(self.rendered, [*OUTPUTS, ".claude/skills/zzz/SKILL.md"])
+        write(self.rendered, OUTPUTS[1], "new\n")
+        write(self.repo, ".claude/skills/zzz/SKILL.md", "hand draft\n")
+        old_manifest = (self.repo / gen.MANIFEST).read_text(encoding="utf-8")
+        with self.assertRaises(SystemExit):
+            gen.sync(self.rendered, self.repo)
+        self.assertEqual(
+            (self.repo / OUTPUTS[1]).read_text(encoding="utf-8"), "x\n"
+        )
+        self.assertEqual(
+            (self.repo / gen.MANIFEST).read_text(encoding="utf-8"), old_manifest
+        )
+
+    def test_file_becomes_parent_directory(self) -> None:
+        blocker = ".agents/skills/old"
+        nested = ".agents/skills/old/nested.md"
+        render(self.repo, [*OUTPUTS, blocker])
+        render(self.rendered, [*OUTPUTS, nested])
+        removed = gen.sync(self.rendered, self.repo)
+        self.assertEqual(removed, [blocker])
+        self.assertEqual(gen.compare(self.rendered, self.repo), [])
+
+    def test_directory_becomes_file(self) -> None:
+        inner = ".agents/skills/old/inner.md"
+        render(self.repo, [*OUTPUTS, inner])
+        render(self.rendered, [*OUTPUTS, ".agents/skills/old"])
+        removed = gen.sync(self.rendered, self.repo)
+        self.assertEqual(removed, [inner])
+        self.assertTrue((self.repo / ".agents/skills/old").is_file())
+        self.assertEqual(gen.compare(self.rendered, self.repo), [])
+
+    def test_directory_with_hand_content_becomes_nothing(self) -> None:
+        inner = ".agents/skills/old/inner.md"
+        render(self.repo, [*OUTPUTS, inner])
+        write(self.repo, ".agents/skills/old/hand.md", "mine\n")
+        render(self.rendered, [*OUTPUTS, ".agents/skills/old"])
+        with self.assertRaises(SystemExit):
+            gen.sync(self.rendered, self.repo)
+        self.assertEqual(
+            (self.repo / ".agents/skills/old/hand.md").read_text(encoding="utf-8"),
+            "mine\n",
+        )
+        self.assertTrue((self.repo / inner).is_file())
+
+    def test_parent_blocked_by_hand_file(self) -> None:
+        render(self.rendered, [*OUTPUTS, ".agents/skills/new/deep.md"])
+        write(self.repo, ".agents/skills/new", "hand file\n")
+        with self.assertRaises(SystemExit):
+            gen.sync(self.rendered, self.repo)
+        self.assertEqual(
+            (self.repo / ".agents/skills/new").read_text(encoding="utf-8"), "hand file\n"
+        )
+
     def test_tolerates_missing_repo_manifest(self) -> None:
         base = Path(self._tmp.name)
         fresh, bare = base / "fresh", base / "bare"
@@ -237,9 +293,8 @@ class SyncTest(unittest.TestCase):
         self.assertEqual(gen.compare(fresh, bare), [])
 
     def test_keeps_previous_manifest_on_midloop_failure(self) -> None:
-        # A failure past the manifest's sort position must not strand stale
-        # outputs: the repo keeps the previous manifest, so a retry still
-        # recognizes them as previously generated.
+        # A failure past the manifest's sort position keeps the previous
+        # manifest, so a retry converges instead of stranding stale outputs.
         stale = ".agents/skills/old/SKILL.md"
         render(self.repo, [*OUTPUTS, stale])
         old_manifest = (self.repo / gen.MANIFEST).read_text(encoding="utf-8")
@@ -258,7 +313,8 @@ class SyncTest(unittest.TestCase):
         self.assertEqual(
             (self.repo / gen.MANIFEST).read_text(encoding="utf-8"), old_manifest
         )
-        self.assertTrue((self.repo / stale).is_file())
+        self.assertEqual(gen.sync(self.rendered, self.repo), [])
+        self.assertEqual(gen.compare(self.rendered, self.repo), [])
 
     def test_refuses_symlinked_destination(self) -> None:
         outside = Path(self._tmp.name) / "outside.txt"
