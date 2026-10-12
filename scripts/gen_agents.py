@@ -129,7 +129,11 @@ def owned_files(root: Path) -> set[str]:
     a previously generated path is still a stale output to remove, and one
     squatting elsewhere in an owned tree is still a leftover to report.
     """
-    found = {rel for rel in OWNED_FILES if (root / rel).is_file()}
+    found = {
+        rel
+        for rel in OWNED_FILES
+        if (root / rel).is_file() or is_link(root / rel)
+    }
     for owned in OWNED_DIRS:
         base = root / owned
         if base.is_dir():
@@ -256,6 +260,23 @@ def sync(rendered: Path, repo: Path) -> list[str]:
     # sets are generation-owned by definition, so a lost manifest still
     # recovers instead of refusing every output as hand-authored.
     owned = owned_files(repo)
+    # Retiring ownership must not silence obsolete outputs: a previously
+    # generated file outside the owned sets that the fresh render drops
+    # refuses the promotion until the maintainer deletes it (obsolete) or
+    # moves it aside. Otherwise the manifest refresh would erase the only
+    # record and every later check would pass with it still active.
+    orphaned = sorted(
+        rel
+        for rel in (previous - expected - set(DROPPED) - owned)
+        if os.path.lexists(repo / rel)
+    )
+    if orphaned:
+        joined = ", ".join(orphaned)
+        sys.exit(
+            f"error: refusing to retire orphaned outputs: {joined}. Delete "
+            "them if they are obsolete, or move them aside; generate will "
+            "not drop their ownership silently."
+        )
     replace_dirs: list[str] = []
     for rel in sorted(expected):
         check_no_symlink(repo, rel)

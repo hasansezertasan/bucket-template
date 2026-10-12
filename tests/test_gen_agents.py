@@ -256,6 +256,34 @@ class SyncTest(unittest.TestCase):
         with self.assertRaises(SystemExit):
             gen.sync(self.rendered, self.repo)
 
+    def test_refuses_promotion_with_orphans(self) -> None:
+        # Retiring the manifest must not silently drop ownership of an
+        # obsolete outside-owned file that every later check would miss.
+        render(self.repo, [*OUTPUTS, "ORPHAN.md"])
+        write(self.repo, "ORPHAN.md", "obsolete\n")
+        old_manifest = (self.repo / gen.MANIFEST).read_text(encoding="utf-8")
+        with self.assertRaises(SystemExit):
+            gen.sync(self.rendered, self.repo)
+        self.assertEqual(
+            (self.repo / gen.MANIFEST).read_text(encoding="utf-8"), old_manifest
+        )
+        self.assertEqual(
+            (self.repo / "ORPHAN.md").read_text(encoding="utf-8"), "obsolete\n"
+        )
+
+    def test_removes_stale_broken_root_link(self) -> None:
+        # A root-owned file replaced by a dangling link is still owned, so
+        # dropping it from the render removes the link rather than stranding
+        # or refusing it.
+        render(self.rendered, OUTPUTS[1:])
+        dest = self.repo / OUTPUTS[0]
+        dest.unlink()
+        dest.symlink_to("nowhere")
+        removed = gen.sync(self.rendered, self.repo)
+        self.assertEqual(removed, [OUTPUTS[0]])
+        self.assertFalse(os.path.lexists(dest))
+        self.assertEqual(gen.compare(self.rendered, self.repo), [])
+
     def test_collision_refusal_writes_nothing(self) -> None:
         # A conflicting new path outside the owned sets sorts after a
         # changed output; the refusal must leave even the earlier outputs
@@ -446,7 +474,10 @@ class SyncTest(unittest.TestCase):
             gen.compare(self.rendered, self.repo),
             [f"stale: {gen.MANIFEST}", "orphaned: ORPHAN.md"],
         )
-        gen.sync(self.rendered, self.repo)
+        # Promotion refuses while the orphan stands, so ownership is never
+        # retired silently; the link itself is left untouched.
+        with self.assertRaises(SystemExit):
+            gen.sync(self.rendered, self.repo)
         self.assertTrue((self.repo / "ORPHAN.md").is_symlink())
 
     def test_refuses_symlinked_owned_parent(self) -> None:
