@@ -330,6 +330,17 @@ def sync(rendered: Path, repo: Path) -> list[str]:
                     "holding files generation does not own. Remove it and "
                     "re-run, or move its hand-authored content aside first."
                 )
+        elif is_link(dest) and dest.is_dir():
+            # A directory link at an expected path: the atomic rename cannot
+            # replace it on Windows, and following it is out of the
+            # question. The owner removes the link itself (leaving the
+            # target untouched) and re-runs. File links fall through to
+            # the atomic copy, which swaps the link itself.
+            sys.exit(
+                f"error: cannot promote {rel}: {rel} is a directory link. "
+                "Remove the link itself (rmdir, not del) and re-run; its "
+                "target is left untouched."
+            )
         parts = Path(rel).parts[:-1]
         for depth in range(1, len(parts) + 1):
             ancestor = Path(*parts[:depth]).as_posix()

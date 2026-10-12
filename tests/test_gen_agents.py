@@ -499,6 +499,25 @@ class SyncTest(unittest.TestCase):
         self.assertEqual(gen.compare(self.rendered, self.repo), [])
 
     @needs_symlinks
+    def test_refuses_directory_link_at_expected_path(self) -> None:
+        # The atomic rename cannot swap a directory link (Windows), so it
+        # refuses instead of failing mid-promotion; file links still heal.
+        target = Path(self._tmp.name) / "realdir"
+        target.mkdir()
+        (target / "keep.md").write_text("mine\n", encoding="utf-8")
+        dest = self.repo / OUTPUTS[1]
+        dest.unlink()
+        dest.symlink_to(target, target_is_directory=True)
+        old_manifest = (self.repo / gen.MANIFEST).read_text(encoding="utf-8")
+        with self.assertRaises(SystemExit):
+            gen.sync(self.rendered, self.repo)
+        self.assertTrue(dest.is_symlink())
+        self.assertEqual((target / "keep.md").read_text(encoding="utf-8"), "mine\n")
+        self.assertEqual(
+            (self.repo / gen.MANIFEST).read_text(encoding="utf-8"), old_manifest
+        )
+
+    @needs_symlinks
     def test_replaces_symlinked_destination(self) -> None:
         # The atomic rename swaps the link itself, so a symlinked
         # destination heals without touching the link target.
