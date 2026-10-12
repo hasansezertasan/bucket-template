@@ -116,6 +116,14 @@ class CompareTest(unittest.TestCase):
         write(self.repo, ".claude/settings.local.json", "{}\n")
         self.assertEqual(gen.compare(self.rendered, self.repo), [])
 
+    def test_reports_symlink_at_expected_path_as_stale(self) -> None:
+        dest = self.repo / OUTPUTS[0]
+        outside = Path(self._tmp.name) / "outside.txt"
+        outside.write_bytes(dest.read_bytes())
+        dest.unlink()
+        dest.symlink_to(outside)
+        self.assertEqual(gen.compare(self.rendered, self.repo), [f"stale: {OUTPUTS[0]}"])
+
     def test_reports_orphaned_previous_output(self) -> None:
         # A file the previous manifest lists outside the owned sets (say, an
         # instruction file from a removed preset) is reported, not silently

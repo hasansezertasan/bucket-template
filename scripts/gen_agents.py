@@ -320,6 +320,10 @@ def compare(rendered: Path, repo: Path) -> list[str]:
         target = repo / rel
         if not target.is_file():
             problems.append(f"missing: {rel}")
+        elif is_link(target):
+            # Follows to matching content, but the committed artifact is a
+            # link, not the rendered regular file; generate heals it.
+            problems.append(f"stale: {rel}")
         elif not filecmp.cmp(rendered / rel, target, shallow=False):
             problems.append(f"stale: {rel}")
         elif exec_bit_differs(rendered / rel, target):
