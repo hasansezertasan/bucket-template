@@ -7,6 +7,8 @@ Exercises the post-processing and drift comparison on synthetic trees. Run with
 from __future__ import annotations
 
 import json
+import os
+import shutil
 import sys
 import unittest
 import unittest.mock
@@ -114,6 +116,24 @@ class CompareTest(unittest.TestCase):
         write(self.repo, ".claude/settings.local.json", "{}\n")
         self.assertEqual(gen.compare(self.rendered, self.repo), [])
 
+    def test_reports_orphaned_previous_output(self) -> None:
+        # A file the previous manifest lists outside the owned sets (say, an
+        # instruction file from a removed preset) is reported, not silently
+        # passed, and never auto-deleted: the maintainer may have adopted it.
+        # The manifest itself reports stale alongside, and one promote run
+        # retires both by refreshing it.
+        render(self.repo, [*OUTPUTS, "COPILOT.md"])
+        write(self.repo, "COPILOT.md")
+        self.assertEqual(
+            gen.compare(self.rendered, self.repo),
+            [f"stale: {gen.MANIFEST}", "orphaned: COPILOT.md"],
+        )
+
+    def test_ignores_absent_previous_output(self) -> None:
+        render(self.repo, [*OUTPUTS, "COPILOT.md"])
+        (self.repo / "COPILOT.md").unlink()
+        self.assertEqual(gen.compare(self.rendered, self.repo), [f"stale: {gen.MANIFEST}"])
+
 
 class RenderTest(unittest.TestCase):
     def test_runs_project_toolchain_from_source_root(self) -> None:
@@ -196,6 +216,38 @@ class SyncTest(unittest.TestCase):
         removed = gen.sync(fresh, bare)
         self.assertEqual(removed, [])
         self.assertEqual(gen.compare(fresh, bare), [])
+
+    def test_refuses_symlinked_destination(self) -> None:
+        outside = Path(self._tmp.name) / "outside.txt"
+        outside.write_text("precious\n", encoding="utf-8")
+        (self.repo / OUTPUTS[0]).unlink()
+        (self.repo / OUTPUTS[0]).symlink_to(outside)
+        with self.assertRaises(SystemExit):
+            gen.sync(self.rendered, self.repo)
+        self.assertEqual(outside.read_text(encoding="utf-8"), "precious\n")
+
+    def test_refuses_symlinked_owned_parent(self) -> None:
+        elsewhere = Path(self._tmp.name) / "elsewhere"
+        elsewhere.mkdir()
+        shutil.rmtree(self.repo / ".agents")
+        (self.repo / ".agents").symlink_to(elsewhere)
+        with self.assertRaises(SystemExit):
+            gen.sync(self.rendered, self.repo)
+        self.assertEqual(list(elsewhere.iterdir()), [])
+
+    @unittest.skipUnless(os.name == "posix", "executable-bit semantics")
+    def test_promotes_executable_bit(self) -> None:
+        staged = self.rendered / OUTPUTS[1]
+        staged.chmod(0o755)
+        gen.sync(self.rendered, self.repo)
+        self.assertTrue(os.stat(self.repo / OUTPUTS[1]).st_mode & 0o100)
+
+    @unittest.skipUnless(os.name == "posix", "executable-bit semantics")
+    def test_reports_mode_drift(self) -> None:
+        (self.repo / OUTPUTS[0]).chmod(0o755)
+        self.assertEqual(
+            gen.compare(self.rendered, self.repo), [f"stale mode: {OUTPUTS[0]}"]
+        )
 
 
 if __name__ == "__main__":

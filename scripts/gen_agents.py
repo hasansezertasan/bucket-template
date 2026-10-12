@@ -12,12 +12,15 @@ wrapper owns packaging and drift checks.
   Code and Antigravity read) never touch the checkout. ai-rulez offers no
   switch to turn them off — native ``generate --check`` reports them as
   missing, which is why this wrapper keeps its own ``--check``.
-- Promote (the default mode) copies the rendered files over and removes files
-  the previous render produced but the fresh one no longer lists, so deleting
-  a canonical skill removes its generated copies. Dropped side files are
-  neither promoted nor deleted by promote: a hand-written ``CLAUDE.md`` would
-  shadow ``AGENTS.md`` for the agent that reads it, so ``--check`` reports it
-  instead of vaporizing it.
+- Promote (the default mode) copies the rendered files over and removes owned
+  files the previous render produced but the fresh one no longer lists, so
+  deleting a canonical skill removes its generated copies. Promotion refuses
+  to write through symlinks and mirrors the owner-execute bit Git tracks.
+  Dropped side files are neither promoted nor deleted by promote: a
+  hand-written ``CLAUDE.md`` would shadow ``AGENTS.md`` for the agent that
+  reads it, so ``--check`` reports it instead of vaporizing it. A previously
+  generated file outside the owned sets is reported as orphaned rather than
+  removed, since the maintainer may have adopted it by hand.
 - ``--check`` renders into staging and compares it with the working tree, so a
   stale, missing, hand-edited, or unwanted output fails without modifying files.
 
@@ -29,7 +32,9 @@ from __future__ import annotations
 import argparse
 import filecmp
 import json
+import os
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -125,14 +130,53 @@ def owned_files(root: Path) -> set[str]:
     return found
 
 
+def check_no_symlink(repo: Path, rel: str) -> None:
+    """Refuse a promotion target that passes through a symlink.
+
+    ``copyfile``/``mkdir``/``unlink`` would otherwise follow the link and
+    touch files outside the checkout, so a symlinked ``AGENTS.md`` or owned
+    directory fails the run instead of corrupting an arbitrary user file.
+    """
+    current = repo
+    for part in Path(rel).parts:
+        current = current / part
+        if current.is_symlink():
+            sys.exit(f"error: refusing to promote through symlink: {current}")
+
+
+def sync_exec_bit(src: Path, dest: Path) -> None:
+    """Mirror the owner-execute bit from staging to the checkout (POSIX only).
+
+    ``copyfile`` copies contents but not modes, so a generated helper script
+    would lose ``+x`` on promote while content comparison still passes. Only
+    the owner-execute bit is mirrored: it is the one Git tracks, and full
+    modes are umask- and platform-dependent.
+    """
+    if os.name != "posix":
+        return
+    wanted = stat.S_IMODE(os.stat(src).st_mode) & 0o100
+    current = stat.S_IMODE(os.stat(dest).st_mode)
+    if bool(current & 0o100) != bool(wanted):
+        os.chmod(dest, (current | 0o100) if wanted else (current & ~0o100))
+
+
+def exec_bit_differs(src: Path, dest: Path) -> bool:
+    """True when the owner-execute bits differ (POSIX only; see ``sync_exec_bit``)."""
+    if os.name != "posix":
+        return False
+    src_exec = bool(stat.S_IMODE(os.stat(src).st_mode) & 0o100)
+    dest_exec = bool(stat.S_IMODE(os.stat(dest).st_mode) & 0o100)
+    return src_exec != dest_exec
+
+
 def sync(rendered: Path, repo: Path) -> list[str]:
     """Promote a staging ``rendered`` tree into ``repo``.
 
     Copies every expected file over and removes files the repo's previous
     manifest lists but the fresh render no longer produces. Only previously
-    generated files are ever removed: hand-added files stay for ``--check``
-    to report, and dropped side files are never touched. Returns the removed
-    paths.
+    generated files under the owned sets are ever removed: hand-added files
+    stay for ``--check`` to report, and dropped side files are never touched.
+    Returns the removed paths.
     """
     expected = expected_files(rendered)
     try:
@@ -140,11 +184,14 @@ def sync(rendered: Path, repo: Path) -> list[str]:
     except (FileNotFoundError, json.JSONDecodeError, KeyError):
         previous = set()
     for rel in sorted(expected):
+        check_no_symlink(repo, rel)
         dest = repo / rel
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(rendered / rel, dest)
+        sync_exec_bit(rendered / rel, dest)
     removed = sorted((previous & owned_files(repo)) - expected - set(DROPPED))
     for rel in removed:
+        check_no_symlink(repo, rel)
         (repo / rel).unlink()
     return removed
 
@@ -152,6 +199,11 @@ def sync(rendered: Path, repo: Path) -> list[str]:
 def compare(rendered: Path, repo: Path) -> list[str]:
     """Describe how ``repo``'s outputs differ from a fresh render in ``rendered``."""
     expected = expected_files(rendered)
+    try:
+        previous = expected_files(repo)
+    except (FileNotFoundError, json.JSONDecodeError, KeyError):
+        previous = set()
+    owned = owned_files(repo)
     problems = []
     for rel in sorted(expected):
         target = repo / rel
@@ -159,8 +211,18 @@ def compare(rendered: Path, repo: Path) -> list[str]:
             problems.append(f"missing: {rel}")
         elif not filecmp.cmp(rendered / rel, target, shallow=False):
             problems.append(f"stale: {rel}")
-    leftover = owned_files(repo) - expected - set(DROPPED)
+        elif exec_bit_differs(rendered / rel, target):
+            problems.append(f"stale mode: {rel}")
+    leftover = owned - expected - set(DROPPED)
     problems.extend(f"not generated: {rel}" for rel in sorted(leftover))
+    # A previously generated file outside the owned sets (say, a Copilot
+    # instruction file from a removed preset) is neither promoted nor removed:
+    # the maintainer may have adopted it by hand. Report it instead of
+    # silently passing with obsolete instructions active; one promote run
+    # retires the report by refreshing the manifest.
+    for rel in sorted(previous - expected - set(DROPPED) - owned):
+        if (repo / rel).is_file():
+            problems.append(f"orphaned: {rel}")
     # A dropped file reappearing (say, a hand-written CLAUDE.md) would shadow or
     # contradict AGENTS.md for the agent that reads it.
     problems.extend(f"unwanted: {rel}" for rel in DROPPED if (repo / rel).is_file())
