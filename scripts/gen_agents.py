@@ -176,6 +176,10 @@ def sync(rendered: Path, repo: Path) -> list[str]:
     manifest lists but the fresh render no longer produces. Only previously
     generated files under the owned sets are ever removed: hand-added files
     stay for ``--check`` to report, and dropped side files are never touched.
+    Every destination is preflighted for symlinks before anything is written,
+    and the manifest itself is replaced last: a mid-loop failure keeps the
+    previous manifest, so a retry still recognizes the full previously
+    generated set instead of stranding stale outputs no later run will clean.
     Returns the removed paths.
     """
     expected = expected_files(rendered)
@@ -183,16 +187,21 @@ def sync(rendered: Path, repo: Path) -> list[str]:
         previous = expected_files(repo)
     except (FileNotFoundError, json.JSONDecodeError, KeyError):
         previous = set()
+    removed = sorted((previous & owned_files(repo)) - expected - set(DROPPED))
     for rel in sorted(expected):
         check_no_symlink(repo, rel)
+    for rel in removed:
+        check_no_symlink(repo, rel)
+    for rel in sorted(expected - {MANIFEST}):
         dest = repo / rel
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(rendered / rel, dest)
         sync_exec_bit(rendered / rel, dest)
-    removed = sorted((previous & owned_files(repo)) - expected - set(DROPPED))
     for rel in removed:
-        check_no_symlink(repo, rel)
         (repo / rel).unlink()
+    dest = repo / MANIFEST
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(rendered / MANIFEST, dest)
     return removed
 
 

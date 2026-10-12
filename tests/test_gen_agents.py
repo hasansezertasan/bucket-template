@@ -217,6 +217,30 @@ class SyncTest(unittest.TestCase):
         self.assertEqual(removed, [])
         self.assertEqual(gen.compare(fresh, bare), [])
 
+    def test_keeps_previous_manifest_on_midloop_failure(self) -> None:
+        # A failure past the manifest's sort position must not strand stale
+        # outputs: the repo keeps the previous manifest, so a retry still
+        # recognizes them as previously generated.
+        stale = ".agents/skills/old/SKILL.md"
+        render(self.repo, [*OUTPUTS, stale])
+        old_manifest = (self.repo / gen.MANIFEST).read_text(encoding="utf-8")
+        real_copyfile = gen.shutil.copyfile
+
+        def failing_copy(src: Path, dest: Path) -> Path:
+            if ".claude" in str(dest):
+                raise OSError("disk full")
+            return real_copyfile(src, dest)
+
+        with unittest.mock.patch.object(
+            gen.shutil, "copyfile", side_effect=failing_copy
+        ):
+            with self.assertRaises(OSError):
+                gen.sync(self.rendered, self.repo)
+        self.assertEqual(
+            (self.repo / gen.MANIFEST).read_text(encoding="utf-8"), old_manifest
+        )
+        self.assertTrue((self.repo / stale).is_file())
+
     def test_refuses_symlinked_destination(self) -> None:
         outside = Path(self._tmp.name) / "outside.txt"
         outside.write_text("precious\n", encoding="utf-8")
