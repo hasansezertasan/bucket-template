@@ -240,6 +240,11 @@ def sync(rendered: Path, repo: Path) -> list[str]:
         previous = set()
     removed = sorted((previous & owned_files(repo)) - expected - set(DROPPED))
     removed_set = set(removed)
+    # Ownership for the collision guard comes from the previous manifest, or
+    # — when it is missing or corrupt — from location: files under the owned
+    # sets are generation-owned by definition, so a lost manifest still
+    # recovers instead of refusing every output as hand-authored.
+    owned = owned_files(repo)
     replace_dirs: list[str] = []
     for rel in sorted(expected):
         check_no_symlink(repo, rel)
@@ -248,14 +253,17 @@ def sync(rendered: Path, repo: Path) -> list[str]:
     for rel in sorted(expected - {MANIFEST}):
         dest = repo / rel
         if dest.is_file() and not is_link(dest):
-            if rel not in previous and not filecmp.cmp(
-                rendered / rel, dest, shallow=False
+            if (
+                rel not in previous
+                and rel not in owned
+                and not filecmp.cmp(rendered / rel, dest, shallow=False)
             ):
                 sys.exit(
                     f"error: refusing to overwrite hand-authored {rel}: it is "
-                    "absent from the previous manifest and differs from the "
-                    "rendered output. Move it aside and re-run, or delete it "
-                    "to adopt the generated file."
+                    "neither in the previous manifest nor under a "
+                    "generation-owned path, and differs from the rendered "
+                    "output. Move it aside and re-run, or delete it to "
+                    "adopt the generated file."
                 )
         elif dest.is_dir() and not is_link(dest):
             if dir_is_fully_stale(dest, repo, removed_set):

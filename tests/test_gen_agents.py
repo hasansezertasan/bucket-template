@@ -208,15 +208,20 @@ class SyncTest(unittest.TestCase):
         self.assertEqual(removed, [])
         self.assertTrue((self.repo / "CLAUDE.md").is_file())
 
-    def test_refuses_to_overwrite_hand_authored_new_output(self) -> None:
-        # A newly rendered path occupied by a hand-authored file absent from
-        # the previous manifest must not be silently overwritten.
+    def test_overwrites_hand_file_under_owned_path(self) -> None:
+        # Files under the owned sets are generation-owned by location: a
+        # hand-authored file at a newly rendered owned path is promoted over
+        # (check already reports such strays as not generated). Outside the
+        # owned sets the same collision refuses; see below.
         extra = ".agents/skills/new/SKILL.md"
         render(self.rendered, [*OUTPUTS, extra])
         write(self.repo, extra, "hand draft\n")
-        with self.assertRaises(SystemExit):
-            gen.sync(self.rendered, self.repo)
-        self.assertEqual((self.repo / extra).read_text(encoding="utf-8"), "hand draft\n")
+        removed = gen.sync(self.rendered, self.repo)
+        self.assertEqual(removed, [])
+        self.assertEqual(
+            (self.repo / extra).read_text(encoding="utf-8"), "x\n"
+        )
+        self.assertEqual(gen.compare(self.rendered, self.repo), [])
 
     def test_promotes_identical_hand_authored_new_output(self) -> None:
         # Byte-identical content is a no-op, not a conflict.
@@ -227,12 +232,29 @@ class SyncTest(unittest.TestCase):
         self.assertEqual(removed, [])
         self.assertEqual(gen.compare(self.rendered, self.repo), [])
 
-    def test_collision_refusal_writes_nothing(self) -> None:
-        # A conflicting new path sorts after a changed output; the refusal
-        # must leave even the earlier outputs unpromoted.
-        render(self.rendered, [*OUTPUTS, ".claude/skills/zzz/SKILL.md"])
+    def test_recovers_missing_manifest_from_owned_paths(self) -> None:
+        # Without a previous manifest, owned locations still prove
+        # generation ownership, so the run recreates the manifest.
+        (self.repo / gen.MANIFEST).unlink()
         write(self.rendered, OUTPUTS[1], "new\n")
-        write(self.repo, ".claude/skills/zzz/SKILL.md", "hand draft\n")
+        removed = gen.sync(self.rendered, self.repo)
+        self.assertEqual(removed, [])
+        self.assertTrue((self.repo / gen.MANIFEST).is_file())
+        self.assertEqual(gen.compare(self.rendered, self.repo), [])
+
+    def test_still_refuses_collision_outside_owned_paths(self) -> None:
+        render(self.rendered, [*OUTPUTS, "EXTRA.md"])
+        write(self.repo, "EXTRA.md", "hand\n")
+        with self.assertRaises(SystemExit):
+            gen.sync(self.rendered, self.repo)
+
+    def test_collision_refusal_writes_nothing(self) -> None:
+        # A conflicting new path outside the owned sets sorts after a
+        # changed output; the refusal must leave even the earlier outputs
+        # unpromoted.
+        render(self.rendered, [*OUTPUTS, "ZZZ.md"])
+        write(self.rendered, OUTPUTS[1], "new\n")
+        write(self.repo, "ZZZ.md", "hand draft\n")
         old_manifest = (self.repo / gen.MANIFEST).read_text(encoding="utf-8")
         with self.assertRaises(SystemExit):
             gen.sync(self.rendered, self.repo)
