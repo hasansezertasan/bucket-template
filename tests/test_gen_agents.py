@@ -176,9 +176,25 @@ class CompareTest(unittest.TestCase):
                 gen.os, "unlink", side_effect=PermissionError(13, "denied")
             ),
             unittest.mock.patch.object(gen.os, "rmdir") as rmdir,
+            unittest.mock.patch.object(gen, "is_link", return_value=True),
         ):
             gen.remove_stale(Path("/junction"))
         rmdir.assert_called_once_with(Path("/junction"))
+
+    def test_remove_stale_reraises_for_real_directory(self) -> None:
+        # A real directory must not be silently rmdir'd: re-raise so a
+        # non-empty directory surfaces ENOTEMPTY only via its own path,
+        # never partway through the destructive phase.
+        with (
+            unittest.mock.patch.object(
+                gen.os, "unlink", side_effect=IsADirectoryError(21, "dir")
+            ),
+            unittest.mock.patch.object(gen.os, "rmdir") as rmdir,
+            unittest.mock.patch.object(gen, "is_link", return_value=False),
+        ):
+            with self.assertRaises(IsADirectoryError):
+                gen.remove_stale(Path("/realdir"))
+        rmdir.assert_not_called()
 
     def test_remove_stale_tolerates_absence(self) -> None:
         gen.remove_stale(Path(self._tmp.name) / "absent")
@@ -397,6 +413,19 @@ class SyncTest(unittest.TestCase):
         with self.assertRaises(SystemExit):
             gen.sync(self.rendered, self.repo)
         self.assertEqual(outside.read_text(encoding="utf-8"), "precious\n")
+        self.assertTrue((self.repo / "EXTRA.md").is_symlink())
+
+    @needs_symlinks
+    def test_refuses_link_to_owned_file_collision(self) -> None:
+        # A hand-authored link pointing at a generated file must not inherit
+        # ownership through its target: samefile follows links, so the
+        # identity check is restricted to case-only spellings of the same
+        # pathname.
+        render(self.rendered, [*OUTPUTS, "EXTRA.md"])
+        write(self.rendered, "EXTRA.md", "new\n")
+        (self.repo / "EXTRA.md").symlink_to(self.repo / OUTPUTS[0])
+        with self.assertRaises(SystemExit):
+            gen.sync(self.rendered, self.repo)
         self.assertTrue((self.repo / "EXTRA.md").is_symlink())
 
     @needs_symlinks

@@ -245,6 +245,8 @@ def remove_stale(path: Path) -> None:
     except FileNotFoundError:
         pass
     except (PermissionError, IsADirectoryError):
+        if not is_link(path):
+            raise
         os.rmdir(path)
 
 
@@ -253,12 +255,24 @@ def same_known_file(repo: Path, rel: str, known: set[str]) -> bool:
 
     Identity, not spelling: on a case-insensitive filesystem a case-only
     rename resolves to the previously recorded file, while on POSIX two
-    spellings are two files. Missing sides never match.
+    spellings are two files. Missing sides never match. Only alternate
+    case spellings of the same pathname count: a link pointing at a known
+    file (symlink or hard link) must not confer ownership, so candidates
+    are restricted to the same pathname ignoring case and neither side may
+    be a link.
     """
     dest = repo / rel
+    if is_link(dest):
+        return False
+    wanted = rel.casefold()
     for other in known:
+        if other.casefold() != wanted:
+            continue
+        other_path = repo / other
+        if is_link(other_path):
+            continue
         try:
-            if os.path.samefile(dest, repo / other):
+            if os.path.samefile(dest, other_path):
                 return True
         except OSError:
             continue
