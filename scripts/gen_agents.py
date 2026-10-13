@@ -40,7 +40,7 @@ import stat
 import subprocess
 import sys
 import tempfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 
 REPO = Path(__file__).resolve().parent.parent
 CONFIG_DIR = ".ai-rulez"
@@ -132,9 +132,22 @@ def validate_manifest_rel(rel: str) -> None:
     ``check_no_symlink()`` only guards link redirection, so an absolute
     path or a ``..`` parent reference would read and atomically overwrite
     a file outside the checkout. The manifest is rendered from repo config
-    and must only ever name files beneath the root.
+    and must only ever name files beneath the root. Anchors and drives are
+    judged with both POSIX and Windows semantics: on Windows a rooted path
+    such as ``\\outside.md`` resets the join to the drive root and a
+    drive-relative path such as ``D:outside.md`` switches drives, yet
+    neither counts as absolute there.
     """
-    if not rel or Path(rel).is_absolute() or ".." in Path(rel).parts:
+    posix = PurePosixPath(rel)
+    windows = PureWindowsPath(rel)
+    if (
+        not rel
+        or posix.anchor
+        or windows.anchor
+        or windows.drive
+        or ".." in posix.parts
+        or ".." in windows.parts
+    ):
         sys.exit(f"error: refusing manifest entry escaping the repository: {rel!r}")
 
 

@@ -119,6 +119,15 @@ class DropUnwantedTest(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 gen.expected_files(root)
 
+    def test_rejects_manifest_windows_escape_paths(self) -> None:
+        # On Windows a rooted path resets the join to the drive root and a
+        # drive-relative path switches drives, yet neither is "absolute"
+        # there; judge anchors/drives with Windows semantics on every
+        # platform so the guard cannot be bypassed by backslashes.
+        for evil in ("\\outside.md", "D:outside.md", "..\\escaped.md"):
+            with self.subTest(evil=evil), self.assertRaises(SystemExit):
+                gen.validate_manifest_rel(evil)
+
 
 class CompareTest(unittest.TestCase):
     def setUp(self) -> None:
