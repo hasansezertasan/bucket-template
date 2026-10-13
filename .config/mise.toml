@@ -25,6 +25,14 @@ run = "python scripts/gen_agents.py"
 description = "Verify generated agent files match .ai-rulez/ (read-only)"
 run = "python scripts/gen_agents.py --check"
 
+[tasks."agents:validate"]
+description = "Lint .ai-rulez/ config and content (skill pointers, links, eval cases)"
+run = "ai-rulez validate"
+
+[tasks."agents:eval"]
+description = "Offline skill-activation signal over eval prompts (retrieval ranker; no model, no cost). Informational, not a merge gate."
+run = "ai-rulez eval run --mode activation --surface retrieval --no-write"
+
 [tasks."check-boilerplate"]
 description = "Verify Cobo-managed files match cobo.lock"
 run = "cobo check --strict"
@@ -49,6 +57,7 @@ run = [
   { task = "style:check" },
   { task = "check-boilerplate" },
   { task = "agents:check" },
+  { task = "agents:validate" },
 ]
 
 [tasks."style"]

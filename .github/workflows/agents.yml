@@ -51,3 +51,5 @@ jobs:
       # tool in the config first, and this job needs only the two above.
       - name: Check generated agent files are up to date
         run: python scripts/gen_agents.py --check
+      - name: Validate agent sources
+        run: ai-rulez validate
