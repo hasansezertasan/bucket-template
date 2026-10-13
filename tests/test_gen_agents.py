@@ -98,6 +98,27 @@ class DropUnwantedTest(unittest.TestCase):
             )
             self.assertEqual(gen.expected_files(root), {*OUTPUTS, gen.MANIFEST})
 
+    def test_rejects_manifest_parent_escape(self) -> None:
+        # A manifest entry with `..` would make sync() read and overwrite a
+        # file outside the checkout; refuse instead of traversing.
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            render(root, [*OUTPUTS, "../escaped.md"])
+            with self.assertRaises(SystemExit):
+                gen.expected_files(root)
+
+    def test_rejects_manifest_absolute_path(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            render(root, OUTPUTS)
+            write(
+                root,
+                gen.MANIFEST,
+                json.dumps({"version": "1", "files": [*OUTPUTS, "/etc/passwd"]}),
+            )
+            with self.assertRaises(SystemExit):
+                gen.expected_files(root)
+
 
 class CompareTest(unittest.TestCase):
     def setUp(self) -> None:

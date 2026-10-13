@@ -119,7 +119,23 @@ def drop_unwanted(root: Path) -> None:
 def expected_files(root: Path) -> set[str]:
     """Return every output path recorded in ``root``'s manifest, plus the manifest."""
     data = json.loads((root / MANIFEST).read_text(encoding="utf-8"))
-    return {*data.get("files", []), MANIFEST}
+    files = data.get("files", [])
+    for rel in files:
+        validate_manifest_rel(rel)
+    return {*files, MANIFEST}
+
+
+def validate_manifest_rel(rel: str) -> None:
+    """Refuse a manifest entry that could escape the repository.
+
+    ``sync()`` joins each entry onto the staging and checkout roots, and
+    ``check_no_symlink()`` only guards link redirection, so an absolute
+    path or a ``..`` parent reference would read and atomically overwrite
+    a file outside the checkout. The manifest is rendered from repo config
+    and must only ever name files beneath the root.
+    """
+    if not rel or Path(rel).is_absolute() or ".." in Path(rel).parts:
+        sys.exit(f"error: refusing manifest entry escaping the repository: {rel!r}")
 
 
 def owned_files(root: Path) -> set[str]:
