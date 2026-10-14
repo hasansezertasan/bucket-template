@@ -1,0 +1,36 @@
+_subdirectory: template
+_templates_suffix: .jinja
+_min_copier_version: "9.4.0"
+_answers_file: .copier-answers.yml
+_message_after_copy: |
+  Bucket "{{ bucket_name }}" generated in {{ _copier_conf.dst_path }}.
+  Next: `git init`, add an `origin` remote, then `mise install` and
+  `mise run add-manifest ...`. See README.md for the Actions settings.
+
+bucket_name:
+  type: str
+  help: Bucket name, as used in `scoop bucket add <name>`
+  default: "{{ _copier_conf.dst_path.name }}"
+
+bucket_description:
+  type: str
+  help: One-sentence description for the README
+  default: A Scoop bucket for Windows applications and Python command-line tools.
+
+bucket_owner:
+  type: str
+  help: GitHub owner of the bucket repository (README install snippet only)
+
+bucket_repository:
+  type: str
+  help: GitHub repository name (README install snippet only)
+  default: "{{ bucket_name }}"
+
+copyright_holder:
+  type: str
+  help: Name for the LICENSE copyright line
+
+copyright_year:
+  type: str
+  help: Year for the LICENSE copyright line
+  default: "2026"

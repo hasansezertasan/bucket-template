@@ -1,0 +1,46 @@
+---
+name: Template
+# Renders the Copier template and runs the generated bucket's own gate, so a
+# template change that breaks a fresh bucket fails here. Deny-by-default; the
+# job opts back into exactly what it needs.
+permissions: {}
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  render:
+    name: Rendered bucket passes its checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Render the template
+        run: |
+          pipx run --spec copier==9.18.2 copier copy --defaults --vcs-ref=HEAD \
+            -d bucket_owner=example -d copyright_holder=Example \
+            . "$RUNNER_TEMP/demo-bucket"
+      # Scripts infer the bucket identity from `origin`, as in a real clone.
+      - name: Initialise the rendered bucket
+        working-directory: ${{ runner.temp }}/demo-bucket
+        run: |
+          git init -q -b main
+          git remote add origin https://github.com/example/demo-bucket
+          git add -A
+      - name: Install mise
+        uses: jdx/mise-action@08ae2a091c038e1e05ec6f5115dc5c69d5a2a6b8  # v5.1.2
+        with:
+          install: false
+          cache: false
+      - name: Run the rendered bucket's checks
+        working-directory: ${{ runner.temp }}/demo-bucket
+        run: |
+          mise trust .config/mise.toml
+          mise install
+          mise run check
