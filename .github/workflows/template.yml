@@ -34,7 +34,8 @@ jobs:
           git remote add origin https://github.com/example/demo-bucket
           git add -A
       # cobo (installed by mise through pipx) needs Python >= 3.14, newer than
-      # the runner's system Python, so put a matching one on PATH first.
+      # the runner's system Python, so install one here and point pipx at it
+      # below: pipx ignores PATH and uses its own default interpreter.
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
         with:
@@ -47,6 +48,8 @@ jobs:
       - name: Run the rendered bucket's checks
         working-directory: ${{ runner.temp }}/demo-bucket
         run: |
+          PIPX_DEFAULT_PYTHON="$(command -v python)"
+          export PIPX_DEFAULT_PYTHON
           mise trust .config/mise.toml
           mise install
           mise run check
