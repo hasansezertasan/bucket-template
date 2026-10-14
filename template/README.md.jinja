@@ -6,17 +6,15 @@
 
 1. In **Settings → Actions → General**, give workflows read and write access and
    allow GitHub Actions to create pull requests.
-2. Run `mise install`, then add the first manifest with
-   `mise run add-manifest shim <package>` or
-   `mise run add-manifest binary <owner>/<repository>`.
+2. Run `mise install`, then add the first manifest with the scaffolder (see
+   [Add a manifest](#add-a-manifest)).
 3. Run `mise run generate-readme` and commit the generated table with the new
    manifest.
 4. Run `mise run check` before opening a pull request.
 
 No owner or repository substitutions are needed in scripts or workflows. Shim
-manifests infer the GitHub repository from the `origin` remote so they can point
-to the checked-in `scripts/noop.ps1`. For a downloaded archive or another remote,
-set `SCOOP_BUCKET_REPOSITORY=owner/repository` or pass `--bucket-repository`.
+manifests point at the checked-in `scripts/noop.ps1`, and the scaffolder infers
+the bucket's GitHub repository from the `origin` remote.
 
 ## Install packages
 
@@ -43,25 +41,31 @@ The bucket supports three install routes:
 
 ## Add a manifest
 
-The standard-library-only scaffolder fetches upstream metadata and writes the
-appropriate JSON manifest:
+The manifest scaffolder ships with the `scoop-add` skill of the
+[`scoop-bucket-skills`](https://github.com/hasansezertasan/scoop-bucket-skills)
+Claude Code plugin, not in this repository. Install the plugin and ask your
+agent to add a package, or run the script directly from a clone of that
+repository, from this bucket's root (or with `--bucket-dir`):
 
 ```sh
+SCAFFOLD=<path-to-scoop-bucket-skills>/skills/scoop-add/scripts/add_manifest.py
+
 # PyPI package installed with uv (default) or pipx
-mise run add-manifest shim <package>
-mise run add-manifest shim <package> --via pipx
+python "$SCAFFOLD" shim <package>
+python "$SCAFFOLD" shim <package> --via pipx
 
 # Prebuilt .zip from a GitHub release
-GITHUB_TOKEN="$(gh auth token)" mise run add-manifest binary <owner>/<repository>
-mise run add-manifest binary <owner>/<repository> --artifact <file.zip>
+GITHUB_TOKEN="$(gh auth token)" python "$SCAFFOLD" binary <owner>/<repository>
+python "$SCAFFOLD" binary <owner>/<repository> --artifact <file.zip>
 
 # Seed a binary before its first release
-mise run add-manifest binary <owner>/<repository> --seed --bin <command.exe>
+python "$SCAFFOLD" binary <owner>/<repository> --seed --bin <command.exe>
 ```
 
 When the bucket is not a GitHub clone, add
-`--bucket-repository <owner>/<repository>` to a shim command. Use
-`--bucket-ref <branch>` if `noop.ps1` is served from a ref other than `main`.
+`--bucket-repository <owner>/<repository>` (or set `SCOOP_BUCKET_REPOSITORY`) to a
+shim command. Use `--bucket-ref <branch>` if `noop.ps1` is served from a ref other
+than `main`.
 
 Review inferred descriptions, licenses, archive layout, and commands before
 committing. The Windows workflow defaults to `<command> version`; add an entry to

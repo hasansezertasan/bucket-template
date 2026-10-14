@@ -7,7 +7,9 @@ Conventional Commit title such as `feat: add example manifest` or
 
 Before opening a pull request:
 
-1. Generate manifests with `scripts/add_manifest.py`; do not hand-write their
+1. Generate manifests with the `scoop-add` scaffolder from
+   [`scoop-bucket-skills`](https://github.com/hasansezertasan/scoop-bucket-skills);
+   do not hand-write their
    update metadata unless the upstream layout requires it.
 2. Review inferred descriptions, licenses, archive paths, executable names, and
    smoke-test commands.
