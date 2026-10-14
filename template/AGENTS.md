@@ -16,7 +16,6 @@ task matches one.
 
 - `bucket/*.json` contains installable Scoop manifests. A new bucket starts
   empty; `bucket/.gitkeep` retains the directory.
-- `scripts/add_manifest.py` scaffolds binary and PyPI shim manifests.
 - `scripts/update_manifests.py` updates versions, URLs, and hashes without
   changing curated metadata.
 - `scripts/gen_readme_packages.py` owns the generated README package table.
@@ -24,7 +23,8 @@ task matches one.
 
 ## Invariants
 
-- Use the scaffolder rather than hand-writing a new manifest.
+- Use the `scoop-add` scaffolder from the plugin rather than hand-writing a new
+  manifest.
 - Keep `checkver` and `autoupdate` aligned with the concrete download URL.
 - Never interpolate an untrusted dispatch payload directly into shell source.
 - Keep workflows least-privileged; only update jobs receive write access.
@@ -39,8 +39,6 @@ task matches one.
 ## Commands
 
 ```sh
-mise run add-manifest shim <package>
-mise run add-manifest binary <owner>/<repository>
 mise install
 mise run check
 ```
