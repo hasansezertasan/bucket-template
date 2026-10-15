@@ -5,27 +5,56 @@ bucket that publishes Windows applications and Python command-line tools. A
 generated bucket includes manifest scaffolding, scheduled and release-triggered
 updates, Windows install tests, and a generated package catalog.
 
-## Create a bucket
+## For agents
+
+Copy this prompt into your coding agent:
+
+```text
+Set up a new Scoop bucket for me with the copier-scoop-bucket template.
+
+1. Install the scoop-bucket-skills plugin first:
+   https://github.com/hasansezertasan/scoop-bucket-skills
+   In Claude Code, run `/plugin marketplace add hasansezertasan/scoop-bucket-skills`
+   and `/plugin install scoop-bucket-skills@scoop-bucket-skills`. If your agent
+   has no plugins, clone the repository and read skills/<name>/SKILL.md.
+2. Use its scoop-bucket-setup skill to render
+   https://github.com/hasansezertasan/copier-scoop-bucket into a new directory
+   named scoop-bucket, then configure the repository.
+3. Ask me for anything you need, such as my GitHub owner, the bucket's purpose and
+   the first package, and ask before you create a repository, change settings or
+   secrets, or push.
+```
+
+## For humans
+
+### Create a bucket
 
 ```sh
-uvx copier copy gh:hasansezertasan/copier-scoop-bucket my-bucket
-cd my-bucket
-git init && git remote add origin https://github.com/<owner>/my-bucket
+uvx copier copy gh:hasansezertasan/copier-scoop-bucket scoop-bucket
+cd scoop-bucket
+git init && git remote add origin https://github.com/<owner>/scoop-bucket
 mise install
 ```
 
 The generated `README.md` lists the remaining setup (Actions permissions, the
-first manifest). Pull later template changes into a bucket with:
+first manifest). Add manifests with the scaffolder in the plugin's `scoop-add`
+skill, which you can also run directly (see the generated README).
+
+### Naming
+
+Scoop does not enforce a repository name. Name the repository `scoop-bucket`, as
+the community buckets do with their `scoop-` prefix (for example `scoop-extras`).
+The bucket name used in `scoop bucket add <name> <repository URL>` is a separate
+choice (see the [Scoop wiki](https://github.com/ScoopInstaller/Scoop/wiki/Buckets)),
+and the template asks for it as `bucket_name`, defaulting to the directory name.
+
+### Update a bucket
+
+Pull later template changes into a bucket with:
 
 ```sh
 uvx copier update
 ```
-
-## Agent skills
-
-Skills for operating a bucket (add, fix, triage, remove, verify) live in the
-[`scoop-bucket-skills`](https://github.com/hasansezertasan/scoop-bucket-skills)
-Claude Code plugin, not in this template.
 
 ## Layout
 
