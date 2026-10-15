@@ -7,10 +7,10 @@ comes from the Git remote, GitHub Actions context, or an explicit
 environment/CLI override.
 
 Skills for operating the bucket (adding, fixing, triaging, removing, and
-verifying manifests) come from the
-[`scoop-bucket-skills`](https://github.com/hasansezertasan/scoop-bucket-skills)
-Claude Code plugin. Install it, or read its `SKILL.md` files directly when a
-task matches one.
+verifying manifests) come from
+[`scoop-bucket-skills`](https://github.com/hasansezertasan/scoop-bucket-skills),
+a skills repository that also installs as a Claude Code or Codex plugin. Install
+it, or read its `skills/<name>/SKILL.md` files directly when a task matches one.
 
 ## Layout
 

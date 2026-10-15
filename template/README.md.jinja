@@ -42,10 +42,12 @@ The bucket supports three install routes:
 
 ## Add a manifest
 
-Manifests are scaffolded by the `scoop-add` skill of the
-[`scoop-bucket-skills`](https://github.com/hasansezertasan/scoop-bucket-skills)
-Claude Code plugin, which this repository does not ship. Install the plugin and
-ask your agent to add a package; its `SKILL.md` documents the routes and options.
+Manifests are scaffolded by the `scoop-add` skill from
+[`scoop-bucket-skills`](https://github.com/hasansezertasan/scoop-bucket-skills),
+which this repository does not ship. That repository is a skills repository
+(`skills/<name>/SKILL.md`) that also installs as a Claude Code or Codex plugin.
+Install it for your agent and ask it to add a package; the skill's `SKILL.md`
+documents the routes and options.
 
 Review inferred descriptions, licenses, archive layout, and commands before
 committing. The Windows workflow defaults to `<command> version`; add an entry to
