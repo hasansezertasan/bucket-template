@@ -12,11 +12,16 @@ Copy this prompt into your coding agent:
 ```text
 Set up a new Scoop bucket for me with the copier-scoop-bucket template.
 
-1. Install the scoop-bucket-skills plugin first:
+1. Install the scoop-bucket-skills skills first:
    https://github.com/hasansezertasan/scoop-bucket-skills
-   In Claude Code, run `/plugin marketplace add hasansezertasan/scoop-bucket-skills`
-   and `/plugin install scoop-bucket-skills@scoop-bucket-skills`. If your agent
-   has no plugins, clone the repository and read skills/<name>/SKILL.md.
+   It is a skills repository (skills/<name>/SKILL.md) that also installs as a
+   plugin. In Claude Code, run
+   `/plugin marketplace add hasansezertasan/scoop-bucket-skills` and
+   `/plugin install scoop-bucket-skills@scoop-bucket-skills`. For Codex, clone it
+   and run `codex plugin marketplace add <path>` and
+   `codex plugin add scoop-bucket-skills@scoop-bucket-skills`. For any other
+   agent, use your skills installer or clone the repository and read the
+   SKILL.md files.
 2. Use its scoop-bucket-setup skill to render
    https://github.com/hasansezertasan/copier-scoop-bucket into a new directory
    named scoop-bucket, then configure the repository.
