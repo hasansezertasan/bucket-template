@@ -1,4 +1,4 @@
-# bucket-template
+# copier-scoop-bucket
 
 A [Copier](https://copier.readthedocs.io) template for a [Scoop](https://scoop.sh)
 bucket that publishes Windows applications and Python command-line tools. A
@@ -8,7 +8,7 @@ updates, Windows install tests, and a generated package catalog.
 ## Create a bucket
 
 ```sh
-uvx copier copy gh:hasansezertasan/bucket-template my-bucket
+uvx copier copy gh:hasansezertasan/copier-scoop-bucket my-bucket
 cd my-bucket
 git init && git remote add origin https://github.com/<owner>/my-bucket
 mise install
@@ -53,7 +53,7 @@ before the conversion is not part of the changelog.
 Pin a version when generating a bucket:
 
 ```sh
-uvx copier copy --vcs-ref v0.1.0 gh:hasansezertasan/bucket-template my-bucket
+uvx copier copy --vcs-ref v0.1.0 gh:hasansezertasan/copier-scoop-bucket my-bucket
 ```
 
 The release PR is opened with the workflow's `GITHUB_TOKEN`, so its checks do not
