@@ -1,7 +1,7 @@
 # Scoop Bucket Development Guide
 
 This repository is a Scoop bucket generated from
-[`bucket-template`](https://github.com/hasansezertasan/bucket-template). Keep
+[`copier-scoop-bucket`](https://github.com/hasansezertasan/copier-scoop-bucket). Keep
 scripts and workflows owner-neutral and package-neutral: repository identity
 comes from the Git remote, GitHub Actions context, or an explicit
 environment/CLI override.
