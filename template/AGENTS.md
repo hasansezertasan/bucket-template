@@ -27,7 +27,11 @@ task matches one.
   manifest.
 - Keep `checkver` and `autoupdate` aligned with the concrete download URL.
 - Never interpolate an untrusted dispatch payload directly into shell source.
-- Keep workflows least-privileged; only update jobs receive write access.
+- Keep workflows least-privileged: every workflow starts with `permissions: {}`
+  and each job opts in. Write access is limited to the update and Cobo-sync
+  jobs, the `zizmor` SARIF upload (`security-events`), and the two lint
+  workflows' sticky PR comments (`pull_request_target`, which never checks out
+  PR code). Do not rely on the repository's default workflow permissions.
 - A binary manifest with a placeholder hash (all zeroes) must not be installed by CI.
 - For shim manifests, `scripts/noop.ps1`, its generated SHA-256, and its raw
   repository URL must agree.
