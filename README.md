@@ -40,6 +40,26 @@ Claude Code plugin, not in this template.
 Jinja syntax and must render byte-for-byte identical (`cobo check --strict` in
 the rendered bucket verifies this).
 
+## Releases
+
+The template is versioned with [release-please](https://github.com/googleapis/release-please).
+Conventional Commits merged to `main` open a release PR; merging it tags the
+commit `vX.Y.Z` and creates a GitHub Release with the changelog. Generated
+buckets record the tag in `.copier-answers.yml`, and `copier update` walks these
+tags. Until 1.0, breaking changes and features bump the minor version and fixes
+bump the patch. The first release, `v0.1.0`, is the first Copier version; history
+before the conversion is not part of the changelog.
+
+Pin a version when generating a bucket:
+
+```sh
+uvx copier copy --vcs-ref v0.1.0 gh:hasansezertasan/bucket-template my-bucket
+```
+
+The release PR is opened with the workflow's `GITHUB_TOKEN`, so its checks do not
+start by themselves; run the **Template** workflow on the release branch from the
+Actions tab if you want them before merging.
+
 ## License
 
 MIT. See `LICENSE`.

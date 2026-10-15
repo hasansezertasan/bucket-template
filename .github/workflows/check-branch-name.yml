@@ -24,7 +24,7 @@ jobs:
           purpose='feature|feat|bugfix|fix|hotfix|release|chore'
           agents='ai|copilot|cursor|claude|codex'
           desc='[a-z0-9]+([.-][a-z0-9]+)*'
-          pattern="^(renovate/.+|auto-update/.+|(${purpose}|${agents})/${desc})$"
+          pattern="^(renovate/.+|auto-update/.+|release-please--.+|(${purpose}|${agents})/${desc})$"
           if [[ "${BRANCH_NAME}" =~ ${pattern} ]]; then
             echo "Branch \"${BRANCH_NAME}\" follows the Conventional Branch format."
           else
