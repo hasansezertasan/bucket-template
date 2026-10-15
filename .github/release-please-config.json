@@ -25,7 +25,8 @@
   ],
   "packages": {
     ".": {
-      "package-name": "bucket-template"
+      "package-name": "bucket-template",
+      "initial-version": "0.1.0"
     }
   }
 }
