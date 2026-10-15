@@ -19,9 +19,9 @@ Set up a new Scoop bucket for me with the copier-scoop-bucket template.
    `/plugin marketplace add hasansezertasan/scoop-bucket-skills` and
    `/plugin install scoop-bucket-skills@scoop-bucket-skills`. For Codex, clone it
    and run `codex plugin marketplace add <path>` and
-   `codex plugin add scoop-bucket-skills@scoop-bucket-skills`. For any other
-   agent, use your skills installer or clone the repository and read the
-   SKILL.md files.
+   `codex plugin add scoop-bucket-skills@scoop-bucket-skills`. These plugin
+   installs are not yet verified; if one fails, or for any other agent, clone
+   the repository and read the SKILL.md files.
 2. Use its scoop-bucket-setup skill to render
    https://github.com/hasansezertasan/copier-scoop-bucket into a new directory
    named scoop-bucket, then configure the repository.
