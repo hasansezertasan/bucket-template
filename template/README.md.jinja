@@ -42,31 +42,10 @@ The bucket supports three install routes:
 
 ## Add a manifest
 
-The manifest scaffolder ships with the `scoop-add` skill of the
+Manifests are scaffolded by the `scoop-add` skill of the
 [`scoop-bucket-skills`](https://github.com/hasansezertasan/scoop-bucket-skills)
-Claude Code plugin, not in this repository. Install the plugin and ask your
-agent to add a package, or run the script directly from a clone of that
-repository, from this bucket's root (or with `--bucket-dir`):
-
-```sh
-SCAFFOLD=<path-to-scoop-bucket-skills>/skills/scoop-add/scripts/add_manifest.py
-
-# PyPI package installed with uv (default) or pipx
-python "$SCAFFOLD" shim <package>
-python "$SCAFFOLD" shim <package> --via pipx
-
-# Prebuilt .zip from a GitHub release
-GITHUB_TOKEN="$(gh auth token)" python "$SCAFFOLD" binary <owner>/<repository>
-python "$SCAFFOLD" binary <owner>/<repository> --artifact <file.zip>
-
-# Seed a binary before its first release
-python "$SCAFFOLD" binary <owner>/<repository> --seed --bin <command.exe>
-```
-
-When the bucket is not a GitHub clone, add
-`--bucket-repository <owner>/<repository>` (or set `SCOOP_BUCKET_REPOSITORY`) to a
-shim command. Use `--bucket-ref <branch>` if `noop.ps1` is served from a ref other
-than `main`.
+Claude Code plugin, which this repository does not ship. Install the plugin and
+ask your agent to add a package; its `SKILL.md` documents the routes and options.
 
 Review inferred descriptions, licenses, archive layout, and commands before
 committing. The Windows workflow defaults to `<command> version`; add an entry to
