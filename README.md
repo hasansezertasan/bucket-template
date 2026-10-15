@@ -7,28 +7,24 @@ updates, Windows install tests, and a generated package catalog.
 
 ## For agents
 
-Copy this prompt into your coding agent:
+Your agent is the interface. Copy this prompt into your coding agent:
 
 ```text
-Set up a new Scoop bucket for me with the copier-scoop-bucket template.
+Install the scoop-bucket-skills skills: pick the best installation method for
+you from https://github.com/hasansezertasan/scoop-bucket-skills/blob/main/docs/installation.md
 
-1. Install the scoop-bucket-skills skills first:
-   https://github.com/hasansezertasan/scoop-bucket-skills
-   It is a skills repository (skills/<name>/SKILL.md) that also installs as a
-   plugin. In Claude Code, run
-   `/plugin marketplace add hasansezertasan/scoop-bucket-skills` and
-   `/plugin install scoop-bucket-skills@scoop-bucket-skills`. For Codex, clone it
-   and run `codex plugin marketplace add <path>` and
-   `codex plugin add scoop-bucket-skills@scoop-bucket-skills`. These plugin
-   installs are not yet verified; if one fails, or for any other agent, clone
-   the repository and read the SKILL.md files.
-2. Use its scoop-bucket-setup skill to render
-   https://github.com/hasansezertasan/copier-scoop-bucket into a new directory
-   named scoop-bucket, then configure the repository.
-3. Ask me for anything you need, such as my GitHub owner, the bucket's purpose and
-   the first package, and ask before you create a repository, change settings or
-   secrets, or push.
+Then use its scoop-bucket-setup skill to set up a new Scoop bucket from
+https://github.com/hasansezertasan/copier-scoop-bucket, in a directory named
+scoop-bucket. Ask me for what you need (my GitHub owner, the bucket's purpose and
+the first package), and ask before you create a repository, change settings or
+secrets, or push.
 ```
+
+The prompt points the agent at the
+[installation page](https://github.com/hasansezertasan/scoop-bucket-skills/blob/main/docs/installation.md),
+which lists the install routes (Claude Code or Codex plugin, a skills installer,
+or a manual clone) and tells the agent how to choose and confirm one. None of
+those routes has a recorded successful installation yet.
 
 ## For humans
 
