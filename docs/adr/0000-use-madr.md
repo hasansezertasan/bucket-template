@@ -32,3 +32,5 @@ records exercising this convention are 0001–0007, backfilled from
   `template/` renders into a generated bucket, so these records document the
   template itself; buckets inherit the files, not this log.)
 * Bad, because meaningful decisions require an additional document to maintain.
+
+Related research: [0001-homebrew-tap-template-comparison](../research/0001-homebrew-tap-template-comparison.md).

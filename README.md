@@ -66,7 +66,7 @@ uvx copier update
 | `template/` | files rendered into a bucket; `*.jinja` files are templated, the rest are copied verbatim |
 | `.github/workflows/template.yml` | renders the template and runs the bucket's `mise run check` |
 | `.github/workflows/release.yml` | versions the template with release-please |
-| `docs/` | research notes and MADR decision records behind the template's design; paths inside them are relative to a generated bucket, not to this repository |
+| `docs/` | research notes and MADR decision records behind the template's design; paths inside them are relative to this repository, not to a generated bucket |
 
 `template/.gitignore.jinja` is the Cobo-managed `.gitignore` stored under a
 `.jinja` name so it does not ignore files inside `template/`. It contains no
