@@ -1,7 +1,7 @@
 ---
 name: zizmor
 # Static security audit of this bucket's own workflows. The dispatch receivers
-# act on attacker-controllable `client_payload` with a write token, so workflow
+# act on caller-controlled `client_payload` with a write token, so workflow
 # hygiene (least-privilege permissions, no persisted credentials, no template
 # injection) is load-bearing here. Findings go to the Security tab for triage;
 # the job does not fail the build on them.
