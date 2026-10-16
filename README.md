@@ -23,8 +23,9 @@ secrets, or push.
 The prompt points the agent at the
 [installation page](https://github.com/hasansezertasan/scoop-bucket-skills/blob/main/docs/installation.md),
 which lists the install routes (Claude Code or Codex plugin, a skills installer,
-or a manual clone) and tells the agent how to choose and confirm one. None of
-those routes has a recorded successful installation yet.
+or a manual clone) and tells the agent how to choose and confirm one. The
+Claude Code and Codex plugin routes each have one recorded installation on
+macOS; the skills installer route has none.
 
 ## For humans
 
@@ -64,6 +65,8 @@ uvx copier update
 | `copier.yml` | questions and Copier settings |
 | `template/` | files rendered into a bucket; `*.jinja` files are templated, the rest are copied verbatim |
 | `.github/workflows/template.yml` | renders the template and runs the bucket's `mise run check` |
+| `.github/workflows/release.yml` | versions the template with release-please |
+| `docs/` | research notes and MADR decision records behind the template's design; paths inside them are relative to a generated bucket, not to this repository |
 
 `template/.gitignore.jinja` is the Cobo-managed `.gitignore` stored under a
 `.jinja` name so it does not ignore files inside `template/`. It contains no

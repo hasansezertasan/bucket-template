@@ -1,3 +1,4 @@
+---
 name: Package request
 description: Suggest a package to add to this bucket.
 labels: [enhancement]

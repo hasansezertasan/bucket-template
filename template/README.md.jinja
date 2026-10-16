@@ -40,6 +40,13 @@ The bucket supports three install routes:
 
 ¹ uv manages its own Python runtime.
 
+## Agent skills
+
+Skills for operating the bucket (scaffolding manifests, and the checks a
+generated field needs) come from
+[`scoop-bucket-skills`](https://github.com/hasansezertasan/scoop-bucket-skills),
+which this repository does not ship.
+
 ## Add a manifest
 
 Manifests are scaffolded by the `scoop-add` skill from
@@ -58,8 +65,15 @@ smoke test.
 
 ```sh
 mise install
-mise run check
+mise run check      # tests, catalog freshness, YAML/Actions lint, Cobo
+mise run lint       # every prek hook, across the whole repository
+mise run style      # yamlfmt, yamllint, actionlint, action-validator, zizmor
 ```
+
+`prek.toml` is the commit-time gate — `mise run hooks` installs it. It covers
+file hygiene, `typos`, `markdownlint-cli2`, and the same YAML and Actions
+toolchain `mise run style` runs without a hook install; the overlap is
+deliberate so neither path is required.
 
 CI additionally validates every manifest and installs each non-placeholder
 package on Windows.
@@ -81,10 +95,30 @@ with **Contents: write** access to this bucket solely to call the dispatch API.
 Store that token in the producer repository, not in the bucket.
 
 Automated pull requests use the repository secret `WORKFLOW_TOKEN` if defined,
-falling back to `GITHUB_TOKEN`. Because GitHub suppresses follow-on workflow
-runs for actions performed by `GITHUB_TOKEN`, configure a PAT or GitHub App token
-as `WORKFLOW_TOKEN` to run CI checks automatically on update PRs, or run the
-`Tests` workflow manually via `workflow_dispatch`.
+falling back to `GITHUB_TOKEN`. Because GitHub does not start workflows for
+actions performed by `GITHUB_TOKEN`, a pull request opened with it does not run
+`Tests` or the other checks. Run the `Tests` workflow manually via
+`workflow_dispatch` on the update branch before merging, or push to its branch,
+or close and reopen the pull request — or configure a fine-grained personal
+access token or GitHub App token for this repository as `WORKFLOW_TOKEN`
+(**Contents: write** and **Pull requests: write**) so the checks start
+automatically. The secret is optional.
+
+`zizmor.yml` audits the bucket's own workflows on every push and pull request
+and uploads findings to the Security tab. The dispatch receivers act on
+attacker-controllable payloads with a write token, so keep it green.
+`gitignore-drift.yml` re-renders the Cobo-managed `.gitignore` weekly and opens
+a pull request when upstream boilerplate drifted. It opens its pull request the
+same way the update workflows do.
+
+## Pull request conventions
+
+`check-pr-title.yml` requires
+[Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) titles
+and `check-branch-name.yml` requires
+[Conventional Branch](https://conventional-branch.github.io/) names, both
+reported as a sticky comment on the pull request. `renovate/*` and the
+`auto-update/*` branches the bump workflows push are exempt.
 
 ## Managed boilerplate
 

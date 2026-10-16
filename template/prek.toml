@@ -41,6 +41,8 @@ hooks = [
 [[repos]]
 repo = "https://github.com/python-jsonschema/check-jsonschema"
 rev = "0.38.0"
+# `check-github-workflows` validates the workflow files themselves;
+# `check-github-actions` (composite action.yml) is omitted — a bucket has none.
 hooks = [
   { id = "check-github-workflows", name = "Validate GitHub Workflows", args = [
     "--verbose",
@@ -74,4 +76,6 @@ hooks = [{ id = "yamlfmt", name = "YAML Formatter", args = ["-conf", ".config/.y
 [[repos]]
 repo = "https://github.com/asottile/pyupgrade"
 rev = "v3.21.2"
+# The scripts already use 3.10+ syntax (`str | None`); the unit-test workflow
+# runs them on 3.15.
 hooks = [{ id = "pyupgrade", args = ["--py310-plus"] }]
