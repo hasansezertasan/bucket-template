@@ -19,10 +19,20 @@ jobs:
       - name: Lint branch name
         id: lint_branch_name
         env:
+          # github.head_ref is the PR's source branch. Read it through env (not
+          # inline ${{ }}) so an attacker-controlled fork branch name cannot be
+          # injected into the shell — this is why pull_request_target is safe
+          # here: the PR's code is never checked out or executed.
           BRANCH_NAME: ${{ github.head_ref }}
         run: |
+          # Conventional Branch (https://conventional-branch.github.io/): a type
+          # prefix followed by a short description. renovate/* is whitelisted so
+          # dependency PRs are never blocked, and auto-update/* is the branch
+          # the bucket's own bump workflows push.
           purpose='feature|feat|bugfix|fix|hotfix|release|chore'
           agents='ai|copilot|cursor|claude|codex'
+          # Description: lowercase alphanumerics with single '-' or '.'
+          # separators, never leading, trailing, or consecutive.
           desc='[a-z0-9]+([.-][a-z0-9]+)*'
           pattern="^(renovate/.+|auto-update/.+|(${purpose}|${agents})/${desc})$"
           if [[ "${BRANCH_NAME}" =~ ${pattern} ]]; then
@@ -37,6 +47,8 @@ jobs:
             exit 1
           fi
       - uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88  # v3.0.5
+        # The previous step fails on a bad branch name, which would stop the
+        # workflow; this condition lets the comment step still run.
         if: always() && (steps.lint_branch_name.outputs.error_message != null)
         with:
           header: branch-name-lint-error
@@ -50,6 +62,7 @@ jobs:
             ```
             ${{ steps.lint_branch_name.outputs.error_message }}
             ```
+      # Delete the previous comment once the branch name is fixed.
       - if: ${{ steps.lint_branch_name.outputs.error_message == null }}
         uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88  # v3.0.5
         with:

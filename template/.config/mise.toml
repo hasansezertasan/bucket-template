@@ -35,6 +35,14 @@ run = [
   { task = "check-boilerplate" },
 ]
 
+[tasks."hooks"]
+description = "Install the prek git hooks"
+run = "uvx prek install"
+
+[tasks."lint"]
+description = "Run every prek hook across the whole repository"
+run = "uvx prek run --all-files"
+
 [tasks."style"]
 description = "Format and lint all YAML files"
 run = [{ task = "style:fix" }, { task = "style:check" }]

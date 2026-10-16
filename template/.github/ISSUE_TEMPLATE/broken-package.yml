@@ -1,3 +1,4 @@
+---
 name: Broken package
 description: Report a manifest that fails to install or run.
 labels: [bug]

@@ -26,5 +26,14 @@ indent_size = 2
 [.gitignore]
 trim_trailing_whitespace = false
 
+[*.{png,jpg,gif,ico,woff,woff2,ttf,eot,svg,pdf}]
+charset = unset
+end_of_line = unset
+indent_style = unset
+indent_size = unset
+trim_trailing_whitespace = unset
+insert_final_newline = unset
+max_line_length = unset
+
 [*.{diff,patch}]
 trim_trailing_whitespace = false

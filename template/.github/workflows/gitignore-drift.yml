@@ -37,3 +37,6 @@ jobs:
           # Fail the run when a fragment cannot be re-rendered. Otherwise an
           # unreachable or moved template leaves no diff, no PR, and a green run.
           fail-on-sync-error: "true"
+          # Optional PAT or App token so the pull request's checks start by
+          # themselves; GITHUB_TOKEN is the fallback.
+          token: ${{ secrets.WORKFLOW_TOKEN || secrets.GITHUB_TOKEN }}
