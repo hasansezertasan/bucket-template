@@ -34,3 +34,5 @@ in the bucket.
   (`scripts/update_manifests.py`).
 * Bad, because a producer cannot land an urgent fix directly; it waits on the
   bucket's pull request flow.
+
+Related research: [0001-homebrew-tap-template-comparison](../research/0001-homebrew-tap-template-comparison.md).

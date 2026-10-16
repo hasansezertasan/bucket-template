@@ -31,3 +31,5 @@ instead of leaving no diff and a green build.
 * Good, because the branch name already satisfies `check-branch-name.yml`.
 * Bad, because the pull request opened with the `GITHUB_TOKEN` fallback needs
   its checks approved or re-triggered by hand.
+
+Related research: [0001-homebrew-tap-template-comparison](../research/0001-homebrew-tap-template-comparison.md).

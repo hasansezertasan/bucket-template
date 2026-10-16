@@ -32,3 +32,5 @@ scheduled and dispatch workflows with nothing testing it.
 * Bad, because the bucket carries a second language runtime beside its
   PowerShell/JSON payload (pinned to `python = "3.15.0"` in `.config/mise.toml`
   to keep it reproducible).
+
+Related research: [0001-homebrew-tap-template-comparison](../research/0001-homebrew-tap-template-comparison.md).

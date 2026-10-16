@@ -33,3 +33,5 @@ placeholders for it.
 * Good, because generated buckets stay free of skill maintenance burden.
 * Bad, because the template depends on an external repository that must stay
   aligned with the manifest layouts here.
+
+Related research: [0001-homebrew-tap-template-comparison](../research/0001-homebrew-tap-template-comparison.md).

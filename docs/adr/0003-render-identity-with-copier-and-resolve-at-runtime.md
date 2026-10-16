@@ -32,3 +32,5 @@ override, and the `scoop-add` scaffolder infers the repository from the
 * Good, because renames and moves do not require editing scripts or workflows.
 * Bad, because two identity mechanisms (rendered answers plus runtime
   resolution) must be understood instead of one.
+
+Related research: [0001-homebrew-tap-template-comparison](../research/0001-homebrew-tap-template-comparison.md).

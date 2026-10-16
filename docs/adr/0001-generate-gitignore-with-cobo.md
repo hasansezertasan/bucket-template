@@ -33,3 +33,5 @@ and opens a pull request when upstream moved (see
   instead of rotting quietly.
 * Bad, because contributors must learn `cobo sync` instead of editing
   `.gitignore` directly.
+
+Related research: [0001-homebrew-tap-template-comparison](../research/0001-homebrew-tap-template-comparison.md).

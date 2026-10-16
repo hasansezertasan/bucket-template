@@ -32,3 +32,5 @@ optional so buckets without one keep working.
 * Good, because the default path needs no secret management.
 * Good, because buckets that configure the secret get fully automatic checks.
 * Bad, because two token paths mean two behaviors to document and understand.
+
+Related research: [0001-homebrew-tap-template-comparison](../research/0001-homebrew-tap-template-comparison.md).
