@@ -20,11 +20,11 @@ Before opening a pull request:
 
 Include the commands and results in the pull request's verification section.
 
-## Automated update pull requests
+## Automated pull requests
 
-Automated update workflows authenticate using the repository secret
-`WORKFLOW_TOKEN` if present, falling back to `GITHUB_TOKEN`. When PRs are created
-with the default `GITHUB_TOKEN`, GitHub suppresses subsequent workflow runs.
-Maintainers can trigger the `Tests` workflow manually via `workflow_dispatch`
-on the update branch before merging, or configure a `WORKFLOW_TOKEN` secret to
-enable automatic check runs.
+The update and boilerplate-drift workflows open pull requests with the repository
+secret `WORKFLOW_TOKEN` if present, falling back to `GITHUB_TOKEN`. GitHub does
+not start workflows for actions performed by `GITHUB_TOKEN`, so maintainers run
+the `Tests` workflow manually via `workflow_dispatch` on the update branch
+before merging, or push to its branch, or close and reopen such a pull request,
+or configure a `WORKFLOW_TOKEN` secret to start everything automatically.
