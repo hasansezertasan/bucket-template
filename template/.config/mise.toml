@@ -12,6 +12,8 @@ zizmor = "1.31.1"
 
 [tasks."check-boilerplate"]
 description = "Verify Cobo-managed files match cobo.lock"
+# --strict also compares the whole file, so the rendered .gitignore must be
+# byte-identical to the template's .gitignore.jinja.
 run = "cobo check --strict"
 
 [tasks."check-readme"]
@@ -53,7 +55,8 @@ run = "yamlfmt -conf .config/.yamlfmt.yml ."
 
 [tasks."style:check"]
 description = "Lint YAML and GitHub Actions files (no fixes)"
-run = """
+# A TOML *literal* multi-line string: the find below needs real backslashes.
+run = '''
 #!/usr/bin/env bash
 set -e
 echo "Running yamllint..."
@@ -61,11 +64,12 @@ yamllint -c .config/.yamllint.yaml .
 echo "Running actionlint..."
 actionlint
 echo "Running action-validator..."
-find .github/workflows -name '*.yml' -exec action-validator {} +
+# GitHub accepts both extensions for workflows; neither may bypass validation.
+find .github/workflows \( -name '*.yml' -o -name '*.yaml' \) -exec action-validator {} +
 echo "Running zizmor..."
-zizmor .github/workflows/
+zizmor --persona=regular .github/workflows
 echo "All checks passed!"
-"""
+'''
 run_windows = """
-powershell -NoProfile -Command "& { $ErrorActionPreference = 'Stop'; Write-Host 'Running yamllint...'; yamllint -c .config/.yamllint.yaml .; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; Write-Host 'Running actionlint...'; actionlint; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; Write-Host 'Running action-validator...'; Get-ChildItem -Path .github/workflows -Filter *.yml | ForEach-Object { action-validator $_.FullName; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE } }; Write-Host 'Running zizmor...'; zizmor .github/workflows/; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; Write-Host 'All checks passed!' }"
+powershell -NoProfile -Command "& { $ErrorActionPreference = 'Stop'; Write-Host 'Running yamllint...'; yamllint -c .config/.yamllint.yaml .; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; Write-Host 'Running actionlint...'; actionlint; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; Write-Host 'Running action-validator...'; Get-ChildItem -Path .github/workflows | Where-Object { $_.Extension -eq '.yml' -or $_.Extension -eq '.yaml' } | ForEach-Object { action-validator $_.FullName; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE } }; Write-Host 'Running zizmor...'; zizmor --persona=regular .github/workflows/; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; Write-Host 'All checks passed!' }"
 """

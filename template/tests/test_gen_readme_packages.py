@@ -11,7 +11,7 @@ import sys
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from unittest import mock
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
@@ -87,12 +87,12 @@ class TableTest(unittest.TestCase):
             (bucket / "shim.json").write_text(
                 '{"description":"Shim","homepage":"https://example.com","depends":"uv"}'
             )
-            with mock.patch.object(gen, "BUCKET", bucket):
+            with patch.object(gen, "BUCKET", bucket):
                 table = gen.build_table()
         self.assertLess(table.find("`binary`"), table.find("`shim`"))
 
     def test_empty_bucket_has_only_headers(self) -> None:
-        with TemporaryDirectory() as tmp, mock.patch.object(gen, "BUCKET", Path(tmp)):
+        with TemporaryDirectory() as tmp, patch.object(gen, "BUCKET", Path(tmp)):
             table = gen.build_table()
         self.assertIn("| Package | What it does | Route | Needs Python? | Source |", table)
         self.assertEqual(table.count("\n"), 3)
@@ -100,11 +100,11 @@ class TableTest(unittest.TestCase):
 
 class ReadmeFreshnessTest(unittest.TestCase):
     def test_readme_table_is_current(self) -> None:
-        current = gen.README.read_text()
+        current = gen.README.read_text(encoding="utf-8")
         updated = gen.splice(current, gen.build_table())
         self.assertEqual(current, updated,
                          "README.md packages table is stale; run "
-                         "`python scripts/gen_readme_packages.py`")
+                         "`mise run generate-readme`")
 
 
 if __name__ == "__main__":

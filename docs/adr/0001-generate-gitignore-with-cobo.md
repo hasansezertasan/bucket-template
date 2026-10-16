@@ -22,7 +22,9 @@ Windows, Linux, Visual Studio Code, and Python templates, recorded in
 a `.jinja` name so it does not ignore files inside `template/`, with no Jinja
 syntax inside) and must render byte-for-byte identical; `cobo check --strict`
 in the generated bucket verifies this. `gitignore-drift.yml` re-renders weekly
-and opens a pull request when upstream moved (see
+and on demand — never on pull_request, since fetching the upstream templates
+needs the network and is inherently flaky — and opens a pull request when
+upstream moved (see
 [ADR-0006](0006-open-a-pull-request-for-boilerplate-drift.md)).
 
 ### Consequences

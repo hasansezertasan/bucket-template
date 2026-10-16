@@ -4,9 +4,11 @@
 
 ## Setup
 
-1. In **Settings → Actions → General**, keep the default workflow permissions
-   read-only (each workflow declares the access its jobs need) and enable
-   **Allow GitHub Actions to create and approve pull requests**.
+1. In **Settings → Actions → General**, leave the default workflow permissions
+   read-only and tick **Allow GitHub Actions to create and approve pull
+   requests**. Every workflow here declares the write scopes it needs, so a
+   read-only default prevents a future workflow that omits `permissions` from
+   receiving write access.
 2. Run `mise install`, then add the first manifest with the scaffolder (see
    [Add a manifest](#add-a-manifest)).
 3. Run `mise run generate-readme` and commit the generated table with the new

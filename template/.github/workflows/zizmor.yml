@@ -1,5 +1,10 @@
 ---
 name: zizmor
+# Static security audit of this bucket's own workflows. The dispatch receivers
+# act on caller-controlled `client_payload` with a write token, so workflow
+# hygiene (least-privilege permissions, no persisted credentials, no template
+# injection) is load-bearing here. Findings go to the Security tab for triage;
+# the job does not fail the build on them.
 on:
   push:
     branches:
@@ -15,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
-      security-events: write
+      security-events: write  # upload SARIF to the code-scanning dashboard
       contents: read
       actions: read
     steps:
