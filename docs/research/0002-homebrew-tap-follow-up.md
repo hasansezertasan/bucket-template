@@ -21,10 +21,12 @@ file, documentation and README content only; auto-generated files
   hand-write a manifest.
 - Split the `WORKFLOW_TOKEN`/`GITHUB_TOKEN` fallback out of "Automated updates"
   into its own "Automated pull requests" subsection, matching their structure.
-- Tightened the `GITHUB_TOKEN` wording in `CONTRIBUTING.md` ("does not start
-  workflows" instead of "may leave checks pending approval") and dropped the
-  "approve those checks" option, which does not apply to `GITHUB_TOKEN`-opened
-  pull requests.
+- Corrected the `GITHUB_TOKEN` wording in `CONTRIBUTING.md` and the generated
+  README: a pull request opened or updated with `GITHUB_TOKEN` gets its
+  `pull_request` checks created but held pending approval (maintainers approve
+  them or run `Tests` manually); only other token-triggered events are
+  suppressed outright. The flat "does not start workflows" phrasing, copied
+  from the tap, overstated it.
 - Ported their `template/AGENTS.md` polish: `tests/` in the Layout section, the
   "CI fails a stale catalog table" consequence, and the "which generated
   fields need a human check" pointer.

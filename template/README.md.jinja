@@ -101,9 +101,10 @@ Store that token in the producer repository, not in the bucket.
 ### Automated pull requests
 
 The update and drift workflows open their pull requests with the repository
-secret `WORKFLOW_TOKEN` if defined, falling back to `GITHUB_TOKEN`. Because
-GitHub does not start workflows for actions performed by `GITHUB_TOKEN`, a pull
-request opened with it does not run `Tests` or the other checks. Run the `Tests`
+secret `WORKFLOW_TOKEN` if defined, falling back to `GITHUB_TOKEN`. A pull
+request opened with `GITHUB_TOKEN` gets its checks created but held pending
+approval, so `Tests` and the other checks do not run on their own. Approve the
+pending checks, or run the `Tests`
 workflow manually via `workflow_dispatch` on the update branch before merging,
 or push to its branch, or close and reopen the pull request — or configure a
 fine-grained personal access token or GitHub App token for this repository as
