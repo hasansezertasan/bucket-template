@@ -57,14 +57,17 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
-      - name: Set up Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+      # The Cobo version is pinned once, in .config/mise.toml.
+      - name: Install mise
+        uses: jdx/mise-action@9b200bcecbfd6303e69a4a261b2e09e3757440a7  # v5.2.0
         with:
-          python-version: "3.15"
+          install: false
+          cache: false
       - name: Check Cobo-managed files
         run: |
-          python -m pip install cobo==0.5.0
-          cobo check --strict
+          mise trust .config/mise.toml
+          mise install pipx:cobo uv
+          mise exec -- cobo check --strict
   discover:
     name: Discover packages
     runs-on: ubuntu-latest
