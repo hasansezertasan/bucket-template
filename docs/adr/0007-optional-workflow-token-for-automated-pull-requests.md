@@ -32,5 +32,10 @@ optional so buckets without one keep working.
 * Good, because the default path needs no secret management.
 * Good, because buckets that configure the secret get fully automatic checks.
 * Bad, because two token paths mean two behaviors to document and understand.
+* Bad, because the secret is a long-lived credential with write scope that
+  someone must rotate.
+* Bad, because dispatch payloads are attacker-influenced, and a pull request
+  opened with the secret triggers workflows under that identity. The receivers'
+  payload validation and `zizmor.yml` remain the guard.
 
 Related research: [0001-homebrew-tap-template-comparison](../research/0001-homebrew-tap-template-comparison.md).

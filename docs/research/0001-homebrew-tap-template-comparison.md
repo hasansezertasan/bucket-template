@@ -64,4 +64,7 @@ platform-specific files excluded.
 - Tap-name runtime resolution from the Actions context only: the bucket resolves
   identity from the Git remote, the Actions context, or an explicit override
   (see [ADR-0003](../adr/0003-render-identity-with-copier-and-resolve-at-runtime.md)).
-- `uv`/`shellcheck` tool pins vs our `python` pin: per-platform toolchain.
+- `shellcheck` tool pin vs our `python` pin: per-platform toolchain. (The
+  tap's `uv` pin has since been adopted: the mise-installed Cobo check runs
+  `mise install pipx:cobo uv`, and the `hooks`/`lint` tasks shell out to
+  `uvx prek`, so `uv` is pinned in `template/.config/mise.toml`.)
