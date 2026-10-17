@@ -7,7 +7,7 @@ comes from the Git remote, GitHub Actions context, or an explicit
 environment/CLI override.
 
 Skills for operating the bucket (adding, fixing, triaging, removing, and
-verifying manifests) come from
+verifying manifests, and which generated fields need a human check) come from
 [`scoop-bucket-skills`](https://github.com/hasansezertasan/scoop-bucket-skills),
 a skills repository that also installs as a Claude Code or Codex plugin. Install
 it, or read its `skills/<name>/SKILL.md` files directly when a task matches one.
@@ -19,6 +19,7 @@ it, or read its `skills/<name>/SKILL.md` files directly when a task matches one.
 - `scripts/update_manifests.py` updates versions, URLs, and hashes without
   changing curated metadata.
 - `scripts/gen_readme_packages.py` owns the generated README package table.
+- `tests/` holds the unit tests for the scripts.
 - `.github/workflows/` validates, installs, and updates manifests.
 
 ## Invariants
@@ -35,7 +36,8 @@ it, or read its `skills/<name>/SKILL.md` files directly when a task matches one.
 - A binary manifest with a placeholder hash (all zeroes) must not be installed by CI.
 - For shim manifests, `scripts/noop.ps1`, its generated SHA-256, and its raw
   repository URL must agree.
-- Regenerate the README table after any manifest change.
+- Regenerate the README table after any manifest change; CI fails a stale
+  catalog table.
 - Do not manually edit `.gitignore`; it is managed by Cobo and `cobo.lock`.
 - Files tracked by `.copier-answers.yml` come from the template; pull template
   changes with `copier update` instead of editing them to diverge.
