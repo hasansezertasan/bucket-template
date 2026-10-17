@@ -5,7 +5,8 @@ _answers_file: .copier-answers.yml
 _message_after_copy: |
   Bucket "{{ bucket_name }}" generated in {{ _copier_conf.dst_path }}.
   Next: `git init`, add an `origin` remote, then `mise install` and
-  add the first manifest (see README.md, "Add a manifest").
+  add the first manifest with the `scoop-add` skill from
+  hasansezertasan/scoop-bucket-skills. See README.md for the Actions settings.
 
 bucket_name:
   type: str

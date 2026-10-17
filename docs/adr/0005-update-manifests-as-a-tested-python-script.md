@@ -15,9 +15,9 @@ the update workflows or as a script the workflows call.
 
 ## Decision Outcome
 
-Chosen option: "Extract a tested Python script." `scripts/update_manifests.py`
-(with `url_fetch.py` underneath) owns version checks, URL rebuilds, hash
-fetches, and the no-rollback rule for yanked releases; `tests/` unit-tests it
+Chosen option: "Extract a tested Python script." `template/scripts/update_manifests.py`
+(with `template/scripts/url_fetch.py` underneath) owns version checks, URL rebuilds, hash
+fetches, and the no-rollback rule for yanked releases; `template/tests/` unit-tests it
 with stdlib `unittest` and no network. The script never commits —
 `peter-evans/create-pull-request` opens the pull request from the diff, so the
 same code path serves the scheduled workflow, the dispatch workflow, and local
@@ -30,7 +30,7 @@ scheduled and dispatch workflows with nothing testing it.
   rollback refusal) is unit-tested offline.
 * Good, because a contributor can run the updater locally exactly as CI does.
 * Bad, because the bucket carries a second language runtime beside its
-  PowerShell/JSON payload (pinned to `python = "3.15.0"` in `.config/mise.toml`
+  PowerShell/JSON payload (pinned to `python = "3.15.0"` in `template/.config/mise.toml`
   to keep it reproducible).
 
 Related research: [0001-homebrew-tap-template-comparison](../research/0001-homebrew-tap-template-comparison.md).

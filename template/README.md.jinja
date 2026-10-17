@@ -55,11 +55,13 @@ Manifests are scaffolded by the `scoop-add` skill from
 [`scoop-bucket-skills`](https://github.com/hasansezertasan/scoop-bucket-skills),
 which this repository does not ship. That repository is a skills repository
 (`skills/<name>/SKILL.md`) that also installs as a Claude Code or Codex plugin.
-Install it for your agent and ask it to add a package; the skill's `SKILL.md`
-documents the routes and options.
+Install it for your agent and ask it to add a package; the skill documents the
+routes and options (binary, pipx-shim, and uv-tool-shim manifests), and which
+generated fields are guesses that need a human check.
 
-Review inferred descriptions, licenses, archive layout, and commands before
-committing. The Windows workflow defaults to `<command> version`; add an entry to
+Review inferred descriptions, licenses, archive layout, executable names, and
+smoke-test commands before committing. Do not hand-write a manifest. The Windows
+workflow defaults to `<command> version`; add an entry to
 the `$smoke` map in `.github/workflows/tests.yml` when a package uses a different
 smoke test.
 
@@ -96,15 +98,19 @@ re-checks the configured upstream source. A producer needs a fine-grained token
 with **Contents: write** access to this bucket solely to call the dispatch API.
 Store that token in the producer repository, not in the bucket.
 
-Automated pull requests use the repository secret `WORKFLOW_TOKEN` if defined,
-falling back to `GITHUB_TOKEN`. Because GitHub does not start workflows for
-actions performed by `GITHUB_TOKEN`, a pull request opened with it does not run
-`Tests` or the other checks. Run the `Tests` workflow manually via
-`workflow_dispatch` on the update branch before merging, or push to its branch,
-or close and reopen the pull request — or configure a fine-grained personal
-access token or GitHub App token for this repository as `WORKFLOW_TOKEN`
-(**Contents: write** and **Pull requests: write**) so the checks start
-automatically. The secret is optional.
+### Automated pull requests
+
+The update and drift workflows open their pull requests with the repository
+secret `WORKFLOW_TOKEN` if defined, falling back to `GITHUB_TOKEN`. A pull
+request opened with `GITHUB_TOKEN` gets its `pull_request` checks created but
+held pending approval. Approve the pending checks, or run the `Tests` workflow
+manually via `workflow_dispatch` on the update branch before merging — but
+approval alone does not run the title and branch-name lint gates, which listen
+on `pull_request_target` and start no run for these pull requests. Push to the
+branch, or close and reopen the pull request, to trigger them — or configure a
+fine-grained personal access token or GitHub App token for this repository as
+`WORKFLOW_TOKEN` (**Contents: write** and **Pull requests: write**) so the
+checks start automatically. The secret is optional.
 
 `zizmor.yml` audits the bucket's own workflows on every push and pull request
 and uploads findings to the Security tab. The dispatch receivers act on
