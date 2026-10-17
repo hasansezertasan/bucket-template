@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.1.1](https://github.com/hasansezertasan/copier-scoop-bucket/compare/v0.1.0...v0.1.1) (2026-10-17)
+
+
+### 🐛 Bug Fixes
+
+* disable blank issues ([#40](https://github.com/hasansezertasan/copier-scoop-bucket/issues/40)) ([646ca8f](https://github.com/hasansezertasan/copier-scoop-bucket/commit/646ca8fbca34ee6e2b454e35c2baeb470bae6952))
+
+
+### 📝 Documentation
+
+* sync Cobo pin and ADR drift from homebrew-tap comparison ([#46](https://github.com/hasansezertasan/copier-scoop-bucket/issues/46)) ([c3d9dbb](https://github.com/hasansezertasan/copier-scoop-bucket/commit/c3d9dbb4115e43fc39d96bc77cf90fbccaa98d3d))
+* sync homebrew-tap follow-up drift ([#45](https://github.com/hasansezertasan/copier-scoop-bucket/issues/45)) ([030d11d](https://github.com/hasansezertasan/copier-scoop-bucket/commit/030d11de5dd390b74337f29ebbc99dfe095e375d))
+* sync remaining drift from homebrew-tap comparison ([#43](https://github.com/hasansezertasan/copier-scoop-bucket/issues/43)) ([96aac31](https://github.com/hasansezertasan/copier-scoop-bucket/commit/96aac312f134ee7b46450bdf0c0aa010ad418e58))
+* sync template with homebrew-tap comparison ([#42](https://github.com/hasansezertasan/copier-scoop-bucket/issues/42)) ([c5fc3a3](https://github.com/hasansezertasan/copier-scoop-bucket/commit/c5fc3a35fdae623b0979ad17e324dcb6d3ccfa11))
+
 ## 0.1.0 (2026-10-15)
 
 
