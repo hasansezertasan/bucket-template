@@ -26,7 +26,10 @@ file, documentation and README content only; auto-generated files
   `pull_request` checks created but held pending approval (maintainers approve
   them or run `Tests` manually); only other token-triggered events are
   suppressed outright. The flat "does not start workflows" phrasing, copied
-  from the tap, overstated it.
+  from the tap, overstated it. A Codex review then noted the title and
+  branch-name lint gates listen on `pull_request_target`, which starts no run
+  at all for these pull requests — both files now say approval alone does not
+  run them and a push or close/reopen still triggers them.
 - Ported their `template/AGENTS.md` polish: `tests/` in the Layout section, the
   "CI fails a stale catalog table" consequence, and the "which generated
   fields need a human check" pointer.

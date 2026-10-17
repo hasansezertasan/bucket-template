@@ -28,6 +28,8 @@ request opened or updated with `GITHUB_TOKEN` gets its `pull_request` checks
 created but held pending approval; other events the token triggers generally do
 not start workflows at all (`workflow_dispatch` and `repository_dispatch`
 excepted). Maintainers can approve the pending checks or run the `Tests`
-workflow manually via `workflow_dispatch` on the update branch before merging,
-or push to its branch, or close and reopen such a pull request, or configure a
-`WORKFLOW_TOKEN` secret to start applicable checks automatically.
+workflow manually via `workflow_dispatch` on the update branch before merging —
+but approval alone does not run the title and branch-name lint gates, which
+listen on `pull_request_target` and start no run for these pull requests. Push
+to the branch, or close and reopen such a pull request, to trigger them, or
+configure a `WORKFLOW_TOKEN` secret to start applicable checks automatically.
